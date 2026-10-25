@@ -18,10 +18,10 @@ export function MetricsStrip() {
 
   return (
     <dl className="flex flex-wrap gap-x-10 gap-y-4 border-y border-ink-600 py-4">
-      <Metric label="Buyers taking part" value={buyers} note={`${matched} grouped · ${poolCount} waiting to be grouped`} />
-      <Metric label="Groups formed" value={groups} note="buyers with overlapping needs, joined together" />
-      <Metric label="Offers on the table" value={offers} note="competing seller strategies quoted per group" />
-      <Metric label="Engine's picks" value={picks} note="one recommended offer per group" />
+      <Metric label="People shopping in this demo" value={buyers} note={`${matched} already in a group · ${poolCount} still waiting for one`} />
+      <Metric label="Group orders taking shape" value={groups} note="each is one bulk order shared by several buyers" />
+      <Metric label="Seller bids on those orders" value={offers} note="the three sellers undercut each other per group" />
+      <Metric label="Best bid per group" value={picks} note="the strongest offer, scored on price + speed + quality" />
     </dl>
   );
 }

@@ -104,7 +104,7 @@ export default function MarketPage() {
             <section aria-label="Demand groups">
               <div className="mb-4 flex items-baseline justify-between gap-2">
                 <h2 className="font-print text-2xl font-semibold tracking-tight text-fog-100">Demand groups</h2>
-                <span className="tick text-fog-500">Formed from overlapping needs</span>
+                <span className="tick text-fog-500">Each card = one bulk order several buyers are joining</span>
               </div>
 
               {filteredGroups.length === 0 ? (
@@ -245,18 +245,26 @@ function GroupCard({
         </span>
       </div>
 
-      <p className="mt-2 line-clamp-2 text-[13px] leading-relaxed text-fog-300">{group.objective}</p>
+      <p className="mt-2 line-clamp-2 text-[13px] leading-relaxed text-fog-300">
+        <span className="font-display text-[12px] font-bold uppercase tracking-wide text-fog-400">
+          This group is buying:{" "}
+        </span>
+        <span className="text-fog-300">{group.objective}</span>
+      </p>
 
       <div className="mt-4 flex flex-wrap gap-2 text-[12px]">
         <span className="rounded-full bg-ink-800 px-2.5 py-1 text-fog-300">
-          👥 {group.metrics.memberCount} buyers
+          👥 {group.metrics.memberCount} people buying together
         </span>
         <span className="rounded-full bg-ink-800 px-2.5 py-1 text-fog-300">
-          📦 {group.metrics.totalUnits} units
+          📦 {group.metrics.totalUnits} items wanted
+        </span>
+        <span className="rounded-full bg-ink-800 px-2.5 py-1 text-fog-300">
+          ⏱ first deadline ~{group.metrics.earliestDeadlineDays} days
         </span>
         {minPrice != null && maxPrice != null && (
           <span className="rounded-full bg-ink-800 px-2.5 py-1 tabular-nums text-fog-300">
-            💰 Sellers quote {formatMoney(minPrice)}–{formatMoney(maxPrice)}
+            💰 sellers bid {formatMoney(minPrice)}–{formatMoney(maxPrice)} each
           </span>
         )}
       </div>
@@ -264,8 +272,8 @@ function GroupCard({
       <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-ink-700 pt-3">
         <span className="text-xs text-fog-400">
           {offers.length > 0
-            ? `${offers.length} offer${offers.length > 1 ? "s" : ""} competing · ${compatLabel[group.metrics.compatibility] ?? group.metrics.compatibility}`
-            : "No eligible offer yet — see why inside"}
+            ? `${offers.length} seller${offers.length > 1 ? "s" : ""} competing for this order · ${compatLabel[group.metrics.compatibility] ?? group.metrics.compatibility}`
+            : "No seller can serve this group yet — reasons inside"}
         </span>
         <button
           type="button"
