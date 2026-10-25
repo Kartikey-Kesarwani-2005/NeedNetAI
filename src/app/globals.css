@@ -1,0 +1,219 @@
+@import "tailwindcss";
+
+@theme {
+  /* ── The Living Market palette ─────────────────────────── */
+  --color-ink-950: #07090f;
+  --color-ink-900: #0a0d14;
+  --color-ink-850: #0d1119;
+  --color-ink-800: #111623;
+  --color-ink-700: #1a2130;
+  --color-ink-600: #263042;
+  --color-ink-500: #3a465c;
+  --color-ink-400: #5b6880;
+
+  --color-fog-100: #e9edf4;
+  --color-fog-300: #aab3c4;
+  --color-fog-400: #7d879b;
+  --color-fog-500: #5d6678;
+
+  --color-ivory-50: #f7f4ec;
+  --color-ivory-100: #f1ecdf;
+  --color-ivory-200: #e6dfcd;
+  --color-ivory-300: #d6cdb4;
+  --color-ivory-ink: #14161d;
+  --color-ivory-mute: #5b5a52;
+
+  --color-coral-400: #ff8a7d;
+  --color-coral-500: #ff6b5b;
+  --color-coral-600: #e0493a;
+  --color-cyan-400: #5cc8dc;
+  --color-amber-400: #e0a43c;
+  --color-sage-400: #84b899;
+
+  --font-display: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
+  --font-body: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+}
+
+/* ── Base ──────────────────────────────────────────────── */
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--color-ink-900);
+  color: var(--color-fog-100);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: var(--color-coral-500);
+  color: #fff;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-coral-500);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Fine hairline grid — the market's ground plane */
+.market-grid {
+  background-image:
+    linear-gradient(to right, rgba(233, 237, 244, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(233, 237, 244, 0.035) 1px, transparent 1px);
+  background-size: 56px 56px;
+}
+
+.ivory-paper {
+  background-image:
+    linear-gradient(to right, rgba(20, 22, 29, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(20, 22, 29, 0.04) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+/* ── Micro label — mono tick used across the app ───────── */
+.tick {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+/* ── Motion ────────────────────────────────────────────── */
+
+@keyframes node-enter {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.3);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.node-enter {
+  animation: node-enter 0.5s cubic-bezier(0.2, 0.8, 0.3, 1) backwards;
+}
+
+@keyframes dash-drift {
+  to {
+    stroke-dashoffset: -14;
+  }
+}
+
+.edge-drift {
+  animation: dash-drift 2.6s linear infinite;
+}
+
+@keyframes pool-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  50% {
+    transform: scale(1.12);
+    opacity: 0.95;
+  }
+}
+
+.pool-pulse {
+  animation: pool-pulse 3.2s ease-in-out infinite;
+}
+
+/* Phase 3 — replayable "this node just changed" pulse. Two identical
+   keyframes let consecutive change tokens restart the animation without a
+   remount (parity trick). Driven only by real `lastChange` state. */
+@keyframes node-updated-a {
+  0% {
+    box-shadow: 0 0 0 0 rgba(180, 155, 255, 0.8);
+  }
+  70% {
+    box-shadow: 0 0 0 14px rgba(180, 155, 255, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(180, 155, 255, 0);
+  }
+}
+
+@keyframes node-updated-b {
+  0% {
+    box-shadow: 0 0 0 0 rgba(180, 155, 255, 0.8);
+  }
+  70% {
+    box-shadow: 0 0 0 14px rgba(180, 155, 255, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(180, 155, 255, 0);
+  }
+}
+
+.pulse-updated-a {
+  animation: node-updated-a 1.1s ease-out 2;
+}
+
+.pulse-updated-b {
+  animation: node-updated-b 1.1s ease-out 2;
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.rise-in {
+  animation: rise-in 0.45s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.sheet-in {
+  animation: sheet-in 0.32s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+
+@keyframes scrim-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.scrim-in {
+  animation: scrim-in 0.25s ease both;
+}
+
+/* Reduced motion — keep function, drop ornament */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
