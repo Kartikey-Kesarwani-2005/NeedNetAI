@@ -313,6 +313,29 @@ body::after {
   color: var(--color-ink-950);
 }
 
+/* Keyboard users get a visible coral ring — no mystery focus */
+:focus-visible {
+  outline: 2px solid var(--color-coral-500);
+  outline-offset: 2px;
+}
+
+/* Smooth in-page transitions between sections (anchors, tabs) */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Mobile niceties: no grey tap-flash on buttons/links */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* iOS safe-area: fixed overlays clear the home indicator instead of the ear */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .sheet-in {
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+  }
+}
+
 /* Thin warm scrollbar — the ledger's own binding edge */
 * {
   scrollbar-width: thin;
@@ -336,6 +359,9 @@ body::after {
 
 /* Accessibility: anyone preferring less motion gets a still page */
 @media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
   .rise,
   .stamp-slam {
     animation: none;
