@@ -41,6 +41,7 @@
   --font-display: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
   --font-body: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+  --font-print: var(--font-fraunces), Georgia, "Times New Roman", serif;
 }
 
 /* ── Base ──────────────────────────────────────────────── */
@@ -209,6 +210,103 @@ body {
 .card-base {
   background: var(--color-ink-850);
   border: 1px solid var(--color-ink-600);
+}
+
+/* ── Signature details — the "Bazaar Ledger" identity ────── */
+
+/* Editorial print voice: headlines, prices, pull-quotes */
+.font-print {
+  font-family: var(--font-print);
+}
+
+/* Rubber-stamp badge: rotated, double-ruled, like an old-market mark */
+.stamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  border: 1.5px solid currentColor;
+  border-radius: 3px;
+  padding: 0.25em 0.7em;
+  position: relative;
+  box-shadow: inset 0 0 0 3px var(--color-ink-850), inset 0 0 0 4px currentColor;
+  transform: rotate(-3deg);
+}
+
+/* Receipt panel: perforated tear-line top + bottom */
+.receipt {
+  position: relative;
+  background: var(--color-ink-850);
+}
+.receipt::before,
+.receipt::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 10px;
+  background-image: radial-gradient(circle at 10px 0, transparent 6px, var(--color-ink-850) 6.5px);
+  background-size: 15px 10px;
+  background-repeat: repeat-x;
+}
+.receipt::before {
+  top: -10px;
+  transform: scaleY(-1);
+}
+.receipt::after {
+  bottom: -10px;
+}
+
+/* Barcode flourish for order references */
+.barcode {
+  background-image: repeating-linear-gradient(
+    to right,
+    var(--color-ink-950) 0 2px,
+    transparent 2px 5px,
+    var(--color-ink-950) 5px 6px,
+    transparent 6px 10px,
+    var(--color-ink-950) 10px 13px,
+    transparent 13px 14px
+  );
+}
+
+/* Exchange ticker tape */
+@keyframes ticker-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.ticker-track {
+  display: inline-flex;
+  white-space: nowrap;
+  animation: ticker-scroll 36s linear infinite;
+  will-change: transform;
+}
+.ticker-track:hover {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ticker-track {
+    animation: none;
+  }
+}
+
+/* Ink underline swoosh under hero words */
+.swoosh {
+  background-image: linear-gradient(
+    to right,
+    var(--color-coral-500) 0 100%
+  );
+  background-repeat: no-repeat;
+  background-size: 100% 0.14em;
+  background-position: 0 92%;
+  padding-bottom: 0.06em;
 }
 
 /* Reduced motion — keep function, drop ornament */

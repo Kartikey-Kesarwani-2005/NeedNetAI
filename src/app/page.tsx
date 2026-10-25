@@ -26,17 +26,16 @@ export default function LandingPage() {
         {/* ── Hero ─────────────────────────────────────── */}
         <section className="grid items-center gap-10 pb-16 pt-28 lg:grid-cols-[minmax(0,1fr)_500px] lg:gap-6 lg:pt-32">
           <div className="relative z-10 lg:-mr-24">
-            <p className="font-display text-sm font-semibold uppercase tracking-[0.18em] text-coral-600">
-              NeedNet AI — a live demo marketplace
-            </p>
-            <h1 className="mt-4 font-display text-[clamp(2.6rem,7vw,5rem)] font-bold leading-[0.98] tracking-tight text-fog-100">
+            <p className="tick text-coral-600">NeedNet AI — a live demo marketplace</p>
+            <h1 className="mt-4 font-print text-[clamp(2.8rem,7vw,5.4rem)] font-semibold leading-[0.98] tracking-tight text-fog-100">
               Don&apos;t just search
               <br />
               the market<span className="text-coral-500">.</span>
               <br />
               <span className="text-fog-400">Let it form</span>
               <br />
-              <span className="text-fog-400">around your needs</span>
+              <span className="text-fog-400">around your </span>
+              <span className="swoosh font-print italic text-fog-400">needs</span>
               <span className="text-cyan-400">.</span>
             </h1>
 
@@ -49,7 +48,7 @@ export default function LandingPage() {
             <div className="mt-8 flex flex-wrap items-center gap-4">
               <Link
                 href="/market"
-                className="group rounded-full bg-coral-500 px-6 py-3.5 font-display text-base font-bold text-ink-950 shadow-[0_3px_0_var(--color-ink-600)] transition-all hover:bg-coral-400 active:translate-y-[2px] active:shadow-none"
+                className="group rounded-full bg-ink-950 px-7 py-3.5 font-display text-base font-bold text-ivory-50 shadow-[0_4px_0_var(--color-coral-500)] transition-all hover:-translate-y-0.5 hover:shadow-[0_6px_0_var(--color-coral-500)] active:translate-y-[2px] active:shadow-[0_1px_0_var(--color-coral-500)]"
               >
                 Explore the market
                 <span className="ml-2 inline-block transition-transform group-hover:translate-x-1" aria-hidden>→</span>
@@ -62,7 +61,19 @@ export default function LandingPage() {
               </Link>
             </div>
 
-            <p className="mt-10 text-xs text-fog-500">20 synthetic buyers · 5 demand groups · 3 competing seller strategies · PayPal Sandbox test checkout</p>
+            <div className="mt-10 flex max-w-[460px] items-center justify-between rounded-xl border border-ink-600 bg-ink-850 px-5 py-3 shadow-sm">
+              {[
+                ["20", "demo buyers"],
+                ["5", "live groups"],
+                ["3×", "seller bids"],
+                ["€", "test checkout"],
+              ].map(([n, l], i) => (
+                <div key={l} className={`flex-1 text-center ${i > 0 ? "border-l border-ink-600" : ""}`}>
+                  <span className="font-print text-2xl font-semibold text-fog-100">{n}</span>
+                  <span className="block text-[10px] uppercase tracking-wider text-fog-500">{l}</span>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Network preview — a dark night-sky map panel on the warm page */}
@@ -83,7 +94,7 @@ export default function LandingPage() {
 
         {/* ── How it works — plain language, numbered chips ── */}
         <section className="border-t border-ink-600 py-14" aria-label="How NeedNet works">
-          <h2 className="font-display text-2xl font-bold tracking-tight text-fog-100">How it works</h2>
+          <h2 className="font-print text-3xl font-semibold tracking-tight text-fog-100">How it works</h2>
           <ol className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {PROCESS.map((step) => (
               <li key={step.n} className="card-base rounded-2xl p-6 transition-shadow hover:shadow-md">
@@ -101,18 +112,18 @@ export default function LandingPage() {
         {/* ── Why this is different ─────────────────────── */}
         <section className="border-t border-ink-600 py-16">
           <div className="grid gap-10 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] lg:gap-20">
-            <blockquote className="max-w-[24ch] font-display text-3xl font-semibold leading-[1.12] tracking-tight text-fog-100 sm:max-w-none sm:text-4xl">
+            <blockquote className="max-w-[24ch] font-print text-3xl font-semibold italic leading-[1.15] tracking-tight text-fog-100 sm:max-w-none sm:text-4xl">
               “A market shouldn&apos;t wait for demand to find it<span className="text-coral-500">.</span>
               <span className="text-fog-400"> It should condense around the demand</span>
               <span className="text-cyan-400">.</span>”
             </blockquote>
-            <div className="space-y-6">
+            <div className="space-y-6 rounded-2xl border border-ink-600 bg-ink-850 p-6 shadow-md">
               {[
-                ["Needs, not keywords", "Buyers describe outcomes and limits — not SKU codes. The network does the matching."],
+                ["Needs, not keywords", "Buyers describe outcomes and limits — not SKU codes. The network does the matching with AI."],
                 ["Groups change the math", "Negotiating alone is weak. Twenty aligned buyers asking together is a market."],
-                ["The buyer stays in control", "Group formation never spends anyone's money — approval happens person by person."],
+                ["The buyer stays in control", "Group formation never spends anyone's money — approval happens person by person, in the PayPal Sandbox popup."],
               ].map(([t, d]) => (
-                <div key={t} className="rounded-xl border-l-4 border-coral-500/60 bg-ink-850 p-4 pl-5 shadow-sm">
+                <div key={t} className="rounded-xl border-l-4 border-coral-500/60 bg-ink-800/60 p-4 pl-5">
                   <h3 className="font-display text-base font-semibold text-fog-100">{t}</h3>
                   <p className="mt-1.5 max-w-[48ch] text-sm leading-relaxed text-fog-400">{d}</p>
                 </div>
@@ -124,8 +135,8 @@ export default function LandingPage() {
         {/* ── Closing CTA ──────────────────────────────── */}
         <section className="border-t border-ink-600 py-16 text-center">
           <p className="tick text-coral-600">NEW NEEDS WELCOME</p>
-          <h2 className="mx-auto mt-3 max-w-[22ch] font-display text-3xl font-bold tracking-tight text-fog-100 sm:text-4xl">
-            Add a need and watch the market answer<span className="text-coral-500">.</span>
+          <h2 className="mx-auto mt-3 max-w-[24ch] font-print text-3xl font-semibold tracking-tight text-fog-100 sm:text-4xl">
+            Add a need and watch the <span className="swoosh font-print italic">market answer</span><span className="text-coral-500">.</span>
           </h2>
           <div className="mt-8 flex flex-wrap justify-center gap-4">
             <Link href="/market" className="rounded-full bg-coral-500 px-6 py-3.5 font-display text-base font-bold text-ink-950 transition-colors hover:bg-coral-400">

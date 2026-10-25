@@ -21,11 +21,11 @@ export function Wordmark() {
       <span className="grid h-8 w-8 place-items-center rounded-full bg-coral-500 font-display text-base font-bold text-ink-950">
         n
       </span>
-      <span className="font-display text-lg font-bold tracking-tight text-fog-100">
-        neednet
-        <span className="text-coral-500">*</span>
+      <span className="font-print text-lg font-semibold tracking-tight text-ivory-50">
+        NeedNet
+        <span className="text-coral-500">.</span>
       </span>
-      <span className="tick hidden text-fog-500 transition-colors group-hover:text-fog-300 sm:inline">
+      <span className="tick hidden text-ivory-300 transition-colors group-hover:text-ivory-100 sm:inline">
         the living market
       </span>
     </Link>

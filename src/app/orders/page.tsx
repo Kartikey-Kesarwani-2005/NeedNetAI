@@ -67,7 +67,7 @@ export default function OrdersPage() {
           <p className="tick text-coral-600">ORDER HISTORY</p>
           <DemoBadge />
         </div>
-        <h1 className="mt-2 font-display text-4xl font-bold tracking-tight text-fog-100">Your orders</h1>
+        <h1 className="mt-2 font-print text-4xl font-semibold tracking-tight text-fog-100 sm:text-5xl">Your orders</h1>
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-fog-400">
           Every checkout attempt is recorded on the server. Orders waiting for PayPal approval
           stay clearly marked unpaid, and only orders whose PayPal capture the server verified are
@@ -95,34 +95,43 @@ export default function OrdersPage() {
                 </p>
               </div>
             ) : (
-              <ul className="grid gap-4">
+              <ul className="grid gap-6">
                 {orders.map((o) => {
                   const s = STATUS_STYLE[o.status];
                   return (
-                    <li key={o.reference} className="card-base grid gap-3 rounded-xl p-5 sm:grid-cols-[minmax(0,1fr)_auto]">
+                    <li key={o.reference} className="receipt relative mx-0 grid gap-3 rounded-sm border border-ink-600 p-5 pt-6 shadow-md sm:grid-cols-[minmax(0,1fr)_auto]">
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                          <span className="font-display text-sm font-bold text-fog-100">{o.reference}</span>
+                          <span className="font-print text-lg font-semibold text-fog-100">Order {o.reference}</span>
                           <span className="tick text-fog-500">
                             {o.groupId} / {o.offerId.toUpperCase()}
                           </span>
                         </div>
-                        <p className="mt-1 text-xs text-fog-400">
-                          {o.sellerName} · {o.strategyLabel} strategy · buyer {o.buyerId} · created{" "}
-                          {new Date(o.createdAt).toLocaleString("en-GB")}
+                        <p className="mt-1 text-[13px] text-fog-400">
+                          {o.sellerName} · {o.strategyLabel} strategy · buyer {o.buyerId}
+                        </p>
+                        <p className="mt-0.5 text-xs text-fog-500">
+                          Created {new Date(o.createdAt).toLocaleString("en-GB")}
                           {o.capturedAt ? ` · captured ${new Date(o.capturedAt).toLocaleString("en-GB")}` : ""}
                         </p>
-                        <p className="mt-1 font-mono text-[10px] text-fog-500">
+                        <p className="mt-2 font-mono text-[10px] text-fog-500">
                           paypal order {o.paypalOrderId ?? "—"}
                           {o.captureId ? ` · capture …${o.captureId.slice(-8)}` : ""}
                         </p>
+                        {/* barcode flourish from the reference */}
+                        <div
+                          className="barcode mt-3 h-6 w-44 rounded-sm opacity-80"
+                          title={`Reference ${o.reference}`}
+                          aria-hidden
+                        />
+                        <p className="mt-1 font-mono text-[10px] text-fog-500">*{o.reference.replace(/[^a-z0-9]/gi, "")}*</p>
                       </div>
                       <div className="flex flex-col items-start gap-2 sm:items-end">
-                        <span className="font-display text-xl font-bold text-fog-100">
-                          {formatMoney(Number(o.amount))}{" "}
-                          <span className="text-xs font-normal text-fog-500">{o.currency}</span>
+                        <span className="font-print text-3xl font-semibold text-fog-100">
+                          {formatMoney(Number(o.amount))}
+                          <span className="ml-1 font-body text-xs font-normal text-fog-500">{o.currency}</span>
                         </span>
-                        <span className={`tick rounded-full border px-2 py-0.5 ${s.cls}`}>{s.label}</span>
+                        <span className={`tick rounded-full border px-2.5 py-1 ${s.cls}`}>{s.label}</span>
                       </div>
                     </li>
                   );

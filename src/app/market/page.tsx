@@ -12,6 +12,7 @@ import { MetricsStrip } from "@/components/market/MetricsStrip";
 import { Inspector } from "@/components/market/Inspector";
 import { LatestActivity } from "@/components/market/ActivityStream";
 import { GroupSheet } from "@/components/market/GroupSheet";
+import { LiveTicker } from "@/components/market/TickerTape";
 import { OfferLedger, OfferReviewModal } from "@/components/market/OfferLedger";
 import type { SimulatedOffer } from "@/engine/offers";
 import { useMarket } from "@/state/store";
@@ -33,15 +34,20 @@ export default function MarketPage() {
     <div className="market-grid min-h-screen bg-ink-900">
       <TopNav />
 
-      <main className="mx-auto max-w-[1400px] px-4 pb-20 pt-24 sm:px-6">
-        {/* Header — plain language, no numbering */}
+      {/* The live board: the engine's real event stream on a ticker tape */}
+      <div className="pt-14">
+        <LiveTicker />
+      </div>
+
+      <main className="mx-auto max-w-[1400px] px-4 pb-20 pt-10 sm:px-6">
+        {/* Header — editorial print voice */}
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="tick text-coral-600">LIVE DEMO · The market forms in real time</p>
-            <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-fog-100 sm:text-4xl">
-              What everyone needs today
+            <p className="tick text-coral-600">Live demo · how today&apos;s market is forming</p>
+            <h1 className="mt-2 font-print text-4xl font-semibold tracking-tight text-fog-100 sm:text-5xl">
+              What everyone needs <span className="swoosh font-print italic">today</span>
             </h1>
-            <p className="mt-2 max-w-[64ch] text-[15px] leading-relaxed text-fog-300">
+            <p className="mt-3 max-w-[64ch] text-[15px] leading-relaxed text-fog-300">
               Buyers are grouped with others who want the same kind of thing. Sellers then compete
               for the whole group — so each person pays less than they would alone.
             </p>
@@ -65,8 +71,8 @@ export default function MarketPage() {
           <div className="min-w-0">
             {/* ── Demand groups — the main surface ── */}
             <section aria-label="Demand groups">
-              <div className="mb-3 flex items-baseline justify-between gap-2">
-                <h2 className="font-display text-xl font-bold tracking-tight text-fog-100">Demand groups</h2>
+              <div className="mb-4 flex items-baseline justify-between gap-2">
+                <h2 className="font-print text-2xl font-semibold tracking-tight text-fog-100">Demand groups</h2>
                 <span className="tick text-fog-500">Formed from overlapping needs</span>
               </div>
 
@@ -179,11 +185,18 @@ function GroupCard({ group, onOpen }: { group: ComputedGroup; onOpen: () => void
   };
 
   return (
-    <li className="card-base flex flex-col p-5 transition-shadow hover:shadow-md">
-      <div className="flex items-start justify-between gap-3">
+    <li className="card-base relative flex flex-col overflow-hidden rounded-2xl p-5 transition-shadow hover:shadow-md">
+      {/* Engine's pick — a rotated rubber stamp pinned on the card edge */}
+      {offers.length > 0 && offers.some((o) => o.recommended) && (
+        <span className="stamp absolute -left-2 top-4 z-10 bg-ink-850 text-sage-400">
+          ★ Engine&apos;s pick inside
+        </span>
+      )}
+
+      <div className="mt-4 flex items-start justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <span className="h-3 w-3 rounded-full" style={{ background: cat.color }} aria-hidden />
-          <h3 className="font-display text-lg font-bold leading-snug text-fog-100">{group.name}</h3>
+          <h3 className="font-print text-xl font-semibold leading-snug text-fog-100">{group.name}</h3>
         </div>
         <span className="tick shrink-0 rounded-full border border-ink-600 px-2 py-0.5 text-fog-400">
           {group.categoryId}
@@ -215,9 +228,9 @@ function GroupCard({ group, onOpen }: { group: ComputedGroup; onOpen: () => void
         <button
           type="button"
           onClick={onOpen}
-          className="rounded-full bg-coral-500 px-4 py-2 font-display text-sm font-bold text-ink-950 transition-colors hover:bg-coral-400"
+          className="rounded-full bg-ink-950 px-4 py-2 font-display text-sm font-bold text-ivory-50 transition-colors hover:bg-coral-500 hover:text-ink-950"
         >
-          See this group →
+          Open this group →
         </button>
       </div>
     </li>

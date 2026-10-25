@@ -24,7 +24,7 @@ export function OfferLedger({ onReview }: { onReview: (offerId: string) => void 
     <section aria-label="Seller offer comparison">
       <header className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
         <div>
-          <h2 className="font-display text-xl font-bold tracking-tight text-fog-100">Offers on the table</h2>
+          <h2 className="font-print text-2xl font-semibold tracking-tight text-fog-100">Offers on the table</h2>
           <p className="mt-1 text-[13px] text-fog-400">
             Sellers compete for each group — compare price, speed and quality side by side.
           </p>
@@ -68,30 +68,31 @@ function OfferCard({
 
   return (
     <li
-      className={`card-base flex flex-col p-5 transition-shadow hover:shadow-md ${
+      className={`card-base relative flex flex-col overflow-hidden rounded-2xl p-5 transition-shadow hover:shadow-md ${
         isForFocusedGroup ? "border-coral-500" : ""
       }`}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <span className="h-3 w-3 rounded-full" style={{ background: cat.color }} aria-hidden />
-          <h3 className="font-display text-base font-bold leading-snug text-fog-100">{offer.title}</h3>
-        </div>
+      {offer.recommended && (
+        <span className="stamp absolute -right-3 top-4 z-10 bg-ink-850 text-sage-400">
+          ★ Engine&apos;s pick · {offer.score.toFixed(2)}
+        </span>
+      )}
+      {purchased && (
+        <span className="stamp absolute -right-3 top-4 z-10 bg-ink-850 text-cyan-400">PAID · SANDBOX</span>
+      )}
+
+      <div className="mt-2 flex items-center gap-2.5">
+        <span className="h-3 w-3 rounded-full" style={{ background: cat.color }} aria-hidden />
+        <h3 className="font-print text-lg font-semibold leading-snug text-fog-100">{offer.title}</h3>
       </div>
 
       <p className="mt-1 text-xs text-fog-400">
         {offer.sellerName} · for {group?.name ?? "a demand group"}
       </p>
 
-      {offer.recommended && (
-        <div className="mt-3">
-          <EnginePickChip score={offer.score} />
-        </div>
-      )}
-
-      {/* Headline price — the number buyers actually ask about */}
+      {/* Headline price — printed like a ledger figure */}
       <div className="mt-3 flex items-baseline gap-2">
-        <span className="font-display text-2xl font-bold text-fog-100">{formatMoney(offer.unitPrice)}</span>
+        <span className="font-print text-3xl font-semibold text-fog-100">{formatMoney(offer.unitPrice)}</span>
         <span className="text-xs text-fog-400">per unit</span>
       </div>
       <p className="mt-0.5 text-xs text-fog-500">
@@ -122,7 +123,7 @@ function OfferCard({
         <div className="flex flex-wrap gap-1.5">
           <RankChip label="price" rank={offer.priceRank} />
           <RankChip label="speed" rank={offer.speedRank} />
-          <PurchasedChip offerId={offer.id} />
+          {!(offer.recommended || purchased) && <PurchasedChip offerId={offer.id} />}
         </div>
         <button
           type="button"
@@ -130,7 +131,7 @@ function OfferCard({
           className={`tick shrink-0 rounded-full px-4 py-2 transition-colors ${
             purchased
               ? "border border-ink-600 text-fog-300 hover:border-ink-500"
-              : "bg-ink-950 text-ink-850 hover:bg-fog-300"
+              : "bg-coral-500 text-ink-950 hover:bg-coral-400"
           }`}
         >
           {purchased ? "View order" : "Buy this →"}

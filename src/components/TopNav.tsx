@@ -16,7 +16,7 @@ export function TopNav() {
   const [open, setOpen] = useState(false);
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 border-b border-ink-600 bg-ink-900/90 backdrop-blur-sm">
+    <header className="fixed inset-x-0 top-0 z-50 bg-ink-950 shadow-sm">
       <div className="mx-auto flex h-14 max-w-[1400px] items-center justify-between px-4 sm:px-6">
         <Wordmark />
 
@@ -29,7 +29,7 @@ export function TopNav() {
                 key={l.href}
                 href={l.href}
                 className={`rounded-full px-4 py-1.5 font-display text-sm font-semibold transition-colors ${
-                  active ? "bg-ink-950 text-ink-850" : "text-fog-300 hover:bg-ink-800 hover:text-fog-100"
+                  active ? "bg-coral-500 text-ink-950" : "text-ivory-300 hover:bg-white/10 hover:text-ivory-50"
                 }`}
               >
                 {l.label}
@@ -47,7 +47,7 @@ export function TopNav() {
         {/* Mobile toggle */}
         <button
           type="button"
-          className="flex items-center gap-2 rounded-full border border-ink-600 px-3 py-1.5 font-display text-sm text-fog-300 md:hidden"
+          className="flex items-center gap-2 rounded-full border border-white/20 px-3 py-1.5 font-display text-sm text-ivory-300 md:hidden"
           aria-expanded={open}
           aria-controls="mobile-menu"
           onClick={() => setOpen((v) => !v)}
@@ -57,14 +57,14 @@ export function TopNav() {
       </div>
 
       {open && (
-        <nav id="mobile-menu" className="border-t border-ink-600 bg-ink-900 px-4 py-3 md:hidden" aria-label="Mobile">
+        <nav id="mobile-menu" className="border-t border-white/10 bg-ink-950 px-4 py-3 md:hidden" aria-label="Mobile">
           {LINKS.map((l) => (
             <Link
               key={l.href}
               href={l.href}
               onClick={() => setOpen(false)}
               className={`block rounded-lg px-2 py-2.5 font-display text-base ${
-                pathname.startsWith(l.href) ? "bg-ink-800 text-fog-100" : "text-fog-300"
+                pathname.startsWith(l.href) ? "bg-white/10 text-ivory-50" : "text-ivory-300"
               }`}
             >
               {l.label}

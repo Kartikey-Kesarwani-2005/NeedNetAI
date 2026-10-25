@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, IBM_Plex_Mono, Space_Grotesk } from "next/font/google";
+import { Inter, IBM_Plex_Mono, Space_Grotesk, Fraunces } from "next/font/google";
 import "./globals.css";
 import { MarketProvider } from "@/state/store";
 
@@ -22,6 +22,15 @@ const plexMono = IBM_Plex_Mono({
   display: "swap",
 });
 
+// Editorial serif — the "ledger print" voice of the brand (headlines, prices)
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  style: ["normal", "italic"],
+  variable: "--font-fraunces",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: "NeedNet AI — The Living Market",
   description:
@@ -30,7 +39,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${spaceGrotesk.variable} ${inter.variable} ${plexMono.variable}`}>
+    <html lang="en" className={`${spaceGrotesk.variable} ${inter.variable} ${plexMono.variable} ${fraunces.variable}`}>
       <body>
         <MarketProvider>{children}</MarketProvider>
       </body>
