@@ -55,30 +55,30 @@ export function GroupSheet({ groupId, onClose, onReviewOffer }: GroupSheetProps)
   return (
     <SheetFrame onClose={onClose} closeRef={closeRef}>
       <span className="tick" style={{ color: cat.color }}>
-        {g.id.toUpperCase()} / {cat.label} {g.seed ? "/ seeded community, re-validated" : "/ engine-formed"}
+        {cat.label.toUpperCase()} · {g.seed ? "SEEDED COMMUNITY, RE-VALIDATED" : "FORMED BY THE ENGINE"}
       </span>
       <h2 className="mt-1 font-display text-2xl font-bold tracking-tight text-fog-100">{g.name}</h2>
       <div className="mt-3 flex flex-wrap gap-2">
         <CompatibilityChip kind={m.compatibility} />
-        <span className="tick border border-coral-500/40 bg-coral-500/5 px-1.5 py-0.5 text-coral-400">Demo data</span>
-        <span className="tick border border-ink-600 px-1.5 py-0.5 text-fog-300">engine pair score {m.avgPairScore.toFixed(2)}</span>
+        <span className="tick rounded-full border border-amber-400/50 bg-amber-400/10 px-2 py-0.5 text-amber-400">Demo data</span>
+        <span className="tick rounded-full border border-ink-600 px-2 py-0.5 text-fog-300">alignment score {m.avgPairScore.toFixed(2)}</span>
       </div>
 
-      <Block title="Group objective">
+      <Block title="What this group wants">
         <p className="text-sm leading-relaxed text-fog-300">{g.objective}</p>
-        <p className="mt-3 border-l-2 border-ink-600 pl-3 text-[13px] italic leading-relaxed text-fog-400">{g.rationale}</p>
+        <p className="mt-3 rounded-lg border-l-4 border-coral-500/60 bg-ink-800/60 p-3 pl-4 text-[13px] leading-relaxed text-fog-400">{g.rationale}</p>
       </Block>
 
-      <Block title="Why the engine grouped these buyers">
+      <Block title="Why these buyers were joined">
         <ul className="space-y-1.5">
           {m.reasons.map((r) => (
             <li key={r} className="flex gap-2 text-[13px] leading-snug text-fog-300">
-              <span className="tick shrink-0 text-cyan-400">+</span>
+              <span className="shrink-0 font-semibold text-cyan-400">+</span>
               {r}
             </li>
           ))}
           {m.reasons.length === 0 && (
-            <li className="font-mono text-[10px] text-fog-500">Below minimum explainable evidence — group dissolves on next recalculation.</li>
+            <li className="text-[12px] text-fog-500">Not enough solid overlap yet — this group may regroup on the next update.</li>
           )}
         </ul>
       </Block>
@@ -87,17 +87,17 @@ export function GroupSheet({ groupId, onClose, onReviewOffer }: GroupSheetProps)
 
       <AgentAdviceBlock group={g} onCloseSheet={onClose} onReviewOffer={onReviewOffer} />
 
-      <Block title={`Anonymized members (${m.memberCount})`}>
+      <Block title={`Group members (${m.memberCount})`}>
         <ul className="space-y-3">
           {g.members.map((mem) => (
-            <li key={mem.id} className="border border-ink-700 p-3">
+            <li key={mem.id} className="rounded-lg border border-ink-600 bg-ink-800/50 p-3">
               <div className="flex items-baseline justify-between gap-3">
-                <span className="font-mono text-xs font-medium text-fog-100">{mem.label}</span>
+                <span className="text-sm font-medium text-fog-100">{mem.label}</span>
                 <span className="tick text-fog-500">{QUALITY_LABEL[mem.quality]}</span>
               </div>
               <p className="mt-1.5 text-[13px] leading-snug text-fog-300">{mem.need}</p>
-              <p className="mt-1.5 font-mono text-[10px] text-fog-500">
-                {formatMoney(mem.budgetMin)}–{formatMoney(mem.budgetMax)} · ×{mem.quantity} · {mem.deadlineDays}d · {mem.location ?? "no zone"}
+              <p className="mt-1.5 text-[12px] text-fog-500">
+                {formatMoney(mem.budgetMin)}–{formatMoney(mem.budgetMax)} budget · ×{mem.quantity} · {mem.deadlineDays} days · {mem.location ?? "any location"}
               </p>
               <div className="mt-2 flex flex-wrap gap-3">
                 <button
@@ -124,8 +124,8 @@ export function GroupSheet({ groupId, onClose, onReviewOffer }: GroupSheetProps)
         </ul>
       </Block>
 
-      <Block title="Derived group metrics">
-        <dl className="divide-y divide-ink-700/60 border border-ink-700">
+      <Block title="Group numbers at a glance">
+        <dl className="divide-y divide-ink-700 rounded-lg border border-ink-600 bg-ink-850">
           <MetricRow k="Total requested units" v={String(m.totalUnits)} />
           <MetricRow
             k="Combined stated budgets"
@@ -142,23 +142,23 @@ export function GroupSheet({ groupId, onClose, onReviewOffer }: GroupSheetProps)
         </dl>
       </Block>
 
-      <Block title={`Eligible simulated offers (${offers.length})`}>
+      <Block title={`Offers competing for this group (${offers.length})`}>
         {offers.length === 0 ? (
-          <p className="border border-dashed border-ink-600 p-4 font-mono text-xs leading-relaxed text-fog-500">
+          <p className="rounded-lg border border-dashed border-ink-500 p-4 text-xs leading-relaxed text-fog-500">
             No seller strategy can currently serve this group. {excluded.length > 0 && `Reasons: ${excluded.map((x) => `${x.sellerName} — ${x.reasons[0]}`).join("; ")}.`}
           </p>
         ) : (
           <ul className="space-y-3">
             {offers.map((o) => (
-              <li key={o.id} className="border border-ink-700 p-3">
+              <li key={o.id} className="rounded-lg border border-ink-600 bg-ink-850 p-3">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <span className="font-display text-sm font-semibold text-fog-100">{o.sellerName}</span>
-                  <span className="font-mono text-xs text-cyan-400">
+                  <span className="text-xs font-semibold text-cyan-400">
                     {formatMoney(o.unitPrice)}/unit · lot {formatMoney(o.lotTotal)}
                   </span>
                 </div>
-                <p className="mt-1 font-mono text-[10px] text-fog-500">
-                  {o.strategyLabel} strategy · {o.deliveryDays}d delivery · grade {o.quality}
+                <p className="mt-1 text-[12px] text-fog-500">
+                  {o.strategyLabel} strategy · {o.deliveryDays} days delivery · grade {o.quality}
                 </p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   {o.recommended ? <EnginePickChip score={o.score} /> : <span className="tick border border-ink-600 px-1.5 py-0.5 text-fog-400">runner-up</span>}
@@ -175,7 +175,7 @@ export function GroupSheet({ groupId, onClose, onReviewOffer }: GroupSheetProps)
                 </ul>
                 <button
                   type="button"
-                  className="tick mt-2 border border-ink-600 px-2 py-1 text-fog-300 transition-colors hover:border-cyan-400 hover:text-cyan-400"
+                  className="tick mt-2 rounded-full bg-coral-500 px-3 py-1.5 text-ink-950 transition-colors hover:bg-coral-400"
                   onClick={() => {
                     onClose();
                     select({ kind: "offer", id: o.id });
@@ -191,17 +191,17 @@ export function GroupSheet({ groupId, onClose, onReviewOffer }: GroupSheetProps)
       </Block>
 
       {excluded.length > 0 && (
-        <Block title={`Strategies that could not quote (${excluded.length})`}>
+        <Block title={`Sellers who could not quote (${excluded.length})`}>
           <ul className="space-y-2">
             {excluded.map((x) => (
-              <li key={x.sellerId} className="border border-ink-700 bg-ink-850 p-3">
+              <li key={x.sellerId} className="rounded-lg border border-ink-600 bg-ink-800/50 p-3">
                 <div className="flex items-baseline justify-between gap-3">
-                  <span className="font-mono text-xs text-fog-300">{x.sellerName}</span>
+                  <span className="text-[13px] text-fog-300">{x.sellerName}</span>
                   <span className="tick text-amber-400">{x.strategyLabel}</span>
                 </div>
                 <ul className="mt-1.5 space-y-1">
                   {x.reasons.map((r) => (
-                    <li key={r} className="font-mono text-[10px] leading-snug text-fog-500">× {r}</li>
+                    <li key={r} className="text-[12px] leading-snug text-fog-500">× {r}</li>
                   ))}
                 </ul>
               </li>
@@ -319,7 +319,7 @@ function ExplainDecisionBlock({ groupId }: { groupId: string }) {
             <TrustChip origin="engine" />
             <span className="tick text-fog-500">deterministic explanation, valid without AI</span>
           </div>
-          <p className="mt-2 text-sm leading-relaxed text-fog-200">{shown.summary}</p>
+          <p className="mt-2 text-sm leading-relaxed text-fog-300">{shown.summary}</p>
           {shown.tradeoffs.length > 0 && (
             <ul className="mt-2 space-y-1">
               {shown.tradeoffs.map((t) => (
@@ -339,7 +339,7 @@ function ExplainDecisionBlock({ groupId }: { groupId: string }) {
             <TrustChip origin="ai" />
             <span className="tick text-fog-500">AI narrative over engine facts — validated against every id and amount</span>
           </div>
-          <p className="mt-2 text-sm leading-relaxed text-fog-200">{narrative.summary}</p>
+          <p className="mt-2 text-sm leading-relaxed text-fog-300">{narrative.summary}</p>
           {narrative.tradeoffs.length > 0 && (
             <ul className="mt-2 space-y-1">
               {narrative.tradeoffs.map((t) => (
@@ -435,17 +435,18 @@ function AgentAdviceBlock({
   const chosenCost = advice ? group.members.find((mm) => mm.id === advice.buyer.buyerId) : undefined;
 
   return (
-    <Block title="AI purchasing agent">
-      <p className="mb-3 font-mono text-[10px] leading-relaxed text-fog-500">
-        AGENT MODE · the agent may only CHOOSE among the engine&apos;s computed offers — it cannot price, invent or pay.
-        The human approves in the PayPal Sandbox popup; the server verifies the capture.
+    <Block title="✦ AI purchasing agent">
+      <p className="mb-3 text-[12px] leading-relaxed text-fog-500">
+        The agent can only <b className="text-lilac-400">choose</b> among the engine&apos;s computed
+        offers — it cannot set prices, invent anything, or pay. You approve the payment yourself in
+        the PayPal Sandbox popup.
       </p>
       <div className="mb-3 grid gap-1.5">
         {group.members.map((mm) => (
           <label
             key={mm.id}
-            className={`flex cursor-pointer items-center gap-2.5 border border-ink-600 px-2.5 py-1.5 transition-colors ${
-              actingBuyerId === mm.id ? "border-lilac-300 text-fog-100" : "text-fog-400"
+            className={`flex cursor-pointer items-center gap-2.5 rounded-lg border px-2.5 py-1.5 transition-colors ${
+              actingBuyerId === mm.id ? "border-lilac-300 bg-lilac-300/5 text-fog-100" : "border-ink-600 text-fog-400 hover:border-ink-500"
             }`}
           >
             <input
@@ -456,8 +457,8 @@ function AgentAdviceBlock({
               onChange={() => setActingBuyerId(mm.id)}
               className="accent-lilac-300"
             />
-            <span className="font-mono text-xs">{mm.label}</span>
-            <span className="font-mono text-[10px] text-fog-500">×{mm.quantity} · {mm.deadlineDays}d</span>
+            <span className="text-[13px]">{mm.label}</span>
+            <span className="ml-auto text-[11px] text-fog-500">×{mm.quantity} · {mm.deadlineDays} days</span>
           </label>
         ))}
       </div>
@@ -465,35 +466,35 @@ function AgentAdviceBlock({
         type="button"
         onClick={() => void run()}
         disabled={actingBuyerId === "" || state_ === "running"}
-        className="tick w-full border border-lilac-300/50 bg-lilac-300/10 px-3 py-2 text-lilac-300 transition-colors hover:bg-lilac-300/20 disabled:cursor-not-allowed disabled:opacity-40"
+        className="tick w-full rounded-full border border-lilac-300/60 bg-lilac-300/10 px-3 py-2.5 text-lilac-400 transition-colors hover:bg-lilac-300/20 disabled:cursor-not-allowed disabled:opacity-40"
       >
         {state_ === "running" ? "Agent deciding…" : "✦ Run the purchasing agent"}
       </button>
 
-      {state_ === "error" && <p className="mt-2 font-mono text-[11px] text-amber-400">△ {errorMsg}</p>}
+      {state_ === "error" && <p className="mt-2 text-[12px] text-amber-400">△ {errorMsg}</p>}
 
       {state_ === "done" && advice && (
-        <div className="mt-3 border border-lilac-300/40 bg-lilac-300/5 p-3">
+        <div className="mt-3 rounded-xl border border-lilac-300/50 bg-lilac-300/5 p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="tick border border-lilac-300/50 px-1.5 py-0.5 text-lilac-300">
-              {advice.source === "ai" ? "AI AGENT CHOICE" : "ENGINE AGENT (no AI on server)"}
+            <span className="tick rounded-full border border-lilac-300/60 bg-lilac-300/10 px-2 py-0.5 text-lilac-400">
+              {advice.source === "ai" ? "AI AGENT&apos;S CHOICE" : "ENGINE AGENT (no AI on server)"}
             </span>
-            <span className="font-mono text-[10px] text-fog-500">run {advice.runId}</span>
+            <span className="tick text-fog-500">run {advice.runId}</span>
           </div>
           <p className="mt-2 font-display text-base font-semibold leading-snug text-fog-100">{advice.headline}</p>
-          <p className="mt-1.5 font-mono text-[11px] leading-relaxed text-fog-300">{advice.reasoning}</p>
-          <p className="mt-2 font-mono text-[10px] text-fog-500">
+          <p className="mt-1.5 text-[13px] leading-relaxed text-fog-300">{advice.reasoning}</p>
+          <p className="mt-2 text-[12px] text-fog-500">
             for {chosenCost?.label ?? advice.buyer.buyerId} · server-computed share {formatMoney(Number(advice.amount))} EUR —
             the browser cannot change this price
           </p>
-          {advice.message && <p className="mt-1.5 font-mono text-[10px] leading-relaxed text-amber-400">△ {advice.message}</p>}
+          {advice.message && <p className="mt-1.5 text-[12px] leading-relaxed text-amber-400">△ {advice.message}</p>}
           <button
             type="button"
             onClick={() => {
               onCloseSheet();
               onReviewOffer?.(advice.offer.offerId);
             }}
-            className="tick mt-3 w-full border border-coral-500/60 bg-coral-500/10 px-3 py-2 text-coral-300 transition-colors hover:bg-coral-500/20 hover:text-coral-200"
+            className="tick mt-3 w-full rounded-full bg-coral-500 px-3 py-2.5 text-ink-950 transition-colors hover:bg-coral-400"
           >
             Review & pay this proposal →
           </button>
@@ -503,21 +504,22 @@ function AgentAdviceBlock({
   );
 }
 
-function MetricRow({ k, v, note }: { k: string; v: string; note?: string }) {  return (
+function MetricRow({ k, v, note }: { k: string; v: string; note?: string }) {
+  return (
     <div className="px-3 py-2.5">
       <div className="flex items-baseline justify-between gap-4">
-        <dt className="tick text-fog-500">{k}</dt>
-        <dd className="text-right font-mono text-xs text-fog-100">{v}</dd>
+        <dt className="text-xs text-fog-500">{k}</dt>
+        <dd className="text-right text-[13px] font-medium text-fog-100">{v}</dd>
       </div>
-      {note && <p className="mt-0.5 text-right font-mono text-[9px] text-fog-500">{note}</p>}
+      {note && <p className="mt-0.5 text-right text-[10px] text-fog-500">{note}</p>}
     </div>
   );
 }
 
 function Block({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="mt-7 border-t border-ink-700 pt-4">
-      <h3 className="tick mb-3 text-fog-500">{title}</h3>
+    <section className="mt-7 border-t border-ink-600 pt-4">
+      <h3 className="mb-3 font-display text-[15px] font-semibold text-fog-100">{title}</h3>
       {children}
     </section>
   );
@@ -534,13 +536,13 @@ function SheetFrame({
 }) {
   return (
     <div className="fixed inset-0 z-40" role="dialog" aria-modal="true" aria-label="Demand group detail">
-      <button type="button" className="scrim-in absolute inset-0 bg-ink-950/70" onClick={onClose} aria-label="Close group detail" />
-      <aside className="sheet-in absolute right-0 top-0 h-full w-full max-w-xl overflow-y-auto border-l border-ink-600 bg-ink-900 p-6 sm:p-8">
+      <button type="button" className="scrim-in absolute inset-0 bg-ink-950/50" onClick={onClose} aria-label="Close group detail" />
+      <aside className="sheet-in absolute right-0 top-0 h-full w-full max-w-xl overflow-y-auto bg-ink-900 p-6 shadow-2xl sm:p-8">
         <button
           ref={closeRef}
           type="button"
           onClick={onClose}
-          className="tick absolute right-5 top-5 border border-ink-600 px-2 py-1 text-fog-400 transition-colors hover:border-fog-100 hover:text-fog-100"
+          className="tick absolute right-5 top-5 rounded-full border border-ink-600 px-3 py-1.5 text-fog-400 transition-colors hover:border-ink-500 hover:text-fog-100"
         >
           Close ✕
         </button>

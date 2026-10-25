@@ -4,14 +4,12 @@ import Link from "next/link";
 export function DemoBadge({ subtle = false }: { subtle?: boolean }) {
   return (
     <span
-      className={`tick inline-flex items-center gap-1.5 border px-2 py-1 ${
-        subtle
-          ? "border-ink-600 text-fog-400"
-          : "border-amber-400/40 bg-amber-400/5 text-amber-400"
+      className={`tick inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 ${
+        subtle ? "border-ink-600 text-fog-400" : "border-amber-400/50 bg-amber-400/5 text-amber-400"
       }`}
       title="All buyers, sellers and offers shown are fictional demo data."
     >
-      <span className={`h-1 w-1 ${subtle ? "bg-fog-500" : "bg-amber-400"}`} aria-hidden />
+      <span className={`h-1.5 w-1.5 rounded-full ${subtle ? "bg-fog-500" : "bg-amber-400"}`} aria-hidden />
       Demo data
     </span>
   );
@@ -19,7 +17,10 @@ export function DemoBadge({ subtle = false }: { subtle?: boolean }) {
 
 export function Wordmark() {
   return (
-    <Link href="/" className="group inline-flex items-baseline gap-2">
+    <Link href="/" className="group inline-flex items-center gap-2">
+      <span className="grid h-8 w-8 place-items-center rounded-full bg-coral-500 font-display text-base font-bold text-ink-950">
+        n
+      </span>
       <span className="font-display text-lg font-bold tracking-tight text-fog-100">
         neednet
         <span className="text-coral-500">*</span>

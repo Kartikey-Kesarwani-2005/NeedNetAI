@@ -5,6 +5,8 @@ import { useState } from "react";
 import { TopNav } from "@/components/TopNav";
 import { DemoBadge } from "@/components/ui/atoms";
 import { DemandNetwork } from "@/components/network/DemandNetwork";
+import type { ComputedGroup } from "@/engine/engine";
+import { CATEGORY_BY_ID, formatMoney } from "@/data/demo";
 import { CategoryFilter } from "@/components/market/CategoryFilter";
 import { MetricsStrip } from "@/components/market/MetricsStrip";
 import { Inspector } from "@/components/market/Inspector";
@@ -17,23 +19,32 @@ import { useMarket } from "@/state/store";
 export default function MarketPage() {
   const { state } = useMarket();
   const [sheetGroupId, setSheetGroupId] = useState<string | null>(null);
+  const [mapOpen, setMapOpen] = useState(false);
   const [reviewOfferId, setReviewOfferId] = useState<string | null>(null);
   const reviewOffer: SimulatedOffer | null = reviewOfferId
     ? (state.computed.offers.find((o) => o.id === reviewOfferId) ?? null)
     : null;
 
+  const filteredGroups = state.computed.groups.filter(
+    (g) => state.filter === "all" || g.categoryId === state.filter,
+  );
+
   return (
-    <div className="min-h-screen bg-ink-900">
+    <div className="market-grid min-h-screen bg-ink-900">
       <TopNav />
 
-      <main className="mx-auto max-w-[1400px] px-4 pb-20 pt-20 sm:px-6">
-        {/* Header */}
+      <main className="mx-auto max-w-[1400px] px-4 pb-20 pt-24 sm:px-6">
+        {/* Header — plain language, no numbering */}
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="tick text-coral-500">01 / MARKET EXPLORER</p>
-            <h1 className="mt-1 font-display text-3xl font-bold tracking-tight text-fog-100 sm:text-4xl">
-              The market, forming<span className="text-coral-500">.</span>
+            <p className="tick text-coral-600">LIVE DEMO · The market forms in real time</p>
+            <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-fog-100 sm:text-4xl">
+              What everyone needs today
             </h1>
+            <p className="mt-2 max-w-[64ch] text-[15px] leading-relaxed text-fog-300">
+              Buyers are grouped with others who want the same kind of thing. Sellers then compete
+              for the whole group — so each person pays less than they would alone.
+            </p>
           </div>
           <div className="flex items-center gap-3">
             <DemoBadge />
@@ -41,56 +52,102 @@ export default function MarketPage() {
           </div>
         </div>
 
-        <div className="mt-5">
+        <div className="mt-6">
           <MetricsStrip />
         </div>
 
-        {/* Main composition: network + rail */}
-        <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="mt-8">
+          <CategoryFilter />
+        </div>
+
+        {/* Main composition: group cards (primary) + helpful rail */}
+        <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
           <div className="min-w-0">
-            <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-              <h2 className="tick text-fog-400">
-                <span className="text-coral-500">02</span> / LIVING DEMAND NETWORK — SYNTHETIC BUYERS, GROUPS &amp; QUOTES
-              </h2>
-              <NetworkLegend />
-            </div>
+            {/* ── Demand groups — the main surface ── */}
+            <section aria-label="Demand groups">
+              <div className="mb-3 flex items-baseline justify-between gap-2">
+                <h2 className="font-display text-xl font-bold tracking-tight text-fog-100">Demand groups</h2>
+                <span className="tick text-fog-500">Formed from overlapping needs</span>
+              </div>
 
-            <div className="mx-auto aspect-square w-full max-w-[720px]">
-              <DemandNetwork />
-            </div>
+              {filteredGroups.length === 0 ? (
+                <div className="grid place-items-center border border-dashed border-ink-500 p-10 text-center">
+                  <p className="max-w-[36ch] text-sm text-fog-400">
+                    No group matches this category yet. Add a need — when a few people want the same
+                    kind of thing, a group forms automatically.
+                  </p>
+                  <Link
+                    href="/create"
+                    className="mt-4 rounded-full bg-coral-500 px-5 py-2.5 font-display text-sm font-bold text-ink-950 transition-colors hover:bg-coral-400"
+                  >
+                    + Add your need
+                  </Link>
+                </div>
+              ) : (
+                <ul className="grid gap-4 sm:grid-cols-2">
+                  {filteredGroups.map((g) => (
+                    <GroupCard key={g.id} group={g} onOpen={() => setSheetGroupId(g.id)} />
+                  ))}
+                </ul>
+              )}
+            </section>
 
-            <div className="mt-5">
-              <p className="tick mb-3 text-fog-400">
-                <span className="text-cyan-400">03</span> / FILTER THE NETWORK
-              </p>
-              <CategoryFilter />
-            </div>
+            {/* ── Visual map — kept as an optional exploration layer ── */}
+            <section className="mt-8" aria-label="Visual network map">
+              <div className="card-base overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setMapOpen((v) => !v)}
+                  aria-expanded={mapOpen}
+                  className="flex w-full items-center justify-between px-5 py-3.5 text-left transition-colors hover:bg-ink-800"
+                >
+                  <span className="flex items-center gap-3">
+                    <span className="font-display text-base font-semibold text-fog-100">Market map (visual)</span>
+                    <span className="tick text-fog-500">Optional view</span>
+                  </span>
+                  <span className="font-display text-sm text-fog-400" aria-hidden>
+                    {mapOpen ? "Hide −" : "Show +"}
+                  </span>
+                </button>
+                {mapOpen && (
+                  <div className="border-t border-ink-700 p-4">
+                    <div className="mx-auto aspect-square w-full max-w-[640px]">
+                      <DemandNetwork />
+                    </div>
+                    <p className="mt-3 text-center text-xs text-fog-500">
+                      White dots = buyers · diamonds = seller quotes · the coral ring is where new
+                      needs wait to be grouped. Click anything to inspect it on the right.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </section>
           </div>
 
           {/* Right rail */}
           <div className="space-y-6">
-            <div className="border border-ink-700 bg-ink-850 p-5">
+            <div className="card-base p-5">
               <Inspector onOpenGroupDetail={setSheetGroupId} />
             </div>
-            <LatestActivity />
-            <Link
-              href="/create"
-              className="block border border-coral-500/50 bg-coral-500/5 p-4 transition-colors hover:bg-coral-500/10"
-            >
-              <span className="tick text-coral-400">+ ADD TO THE POOL</span>
-              <p className="mt-1 font-display text-lg font-semibold text-fog-100">Create a demand entry</p>
-              <p className="mt-1 text-[13px] text-fog-400">New needs enter the pool at the center of the network.</p>
+            <div className="card-base">
+              <LatestActivity />
+            </div>
+            <Link href="/create" className="block rounded-xl border-2 border-dashed border-coral-500/60 bg-coral-500/5 p-4 transition-colors hover:bg-coral-500/10">
+              <span className="tick text-coral-600">+ ADD TO THE POOL</span>
+              <p className="mt-1 font-display text-lg font-semibold text-fog-100">Add your own need</p>
+              <p className="mt-1 text-[13px] text-fog-400">New needs join the pool until the engine finds them company.</p>
             </Link>
           </div>
         </div>
 
-        {/* Offer ledger */}
-        <div className="mt-14">
+        {/* Offers */}
+        <div className="mt-12">
           <OfferLedger onReview={setReviewOfferId} />
         </div>
 
-        <p className="mt-10 border-t border-ink-700 pt-5 font-mono text-[10px] leading-relaxed text-fog-500">
-          ALL FIGURES ON THIS SCREEN ARE DERIVED FROM THE SYNTHETIC DEMO DATASET IN <span className="text-fog-300">src/data/demo.ts</span>. NOTHING REFLECTS REAL CUSTOMERS, SUPPLIERS OR LIVE PRICES.
+        <p className="mt-10 rounded-lg border border-ink-600 bg-ink-800 px-4 py-3 text-center text-xs leading-relaxed text-fog-400">
+          All figures are demo data. Payments use PayPal Sandbox test accounts — no real vendor, no
+          real money.
         </p>
       </main>
 
@@ -106,23 +163,67 @@ export default function MarketPage() {
   );
 }
 
-function NetworkLegend() {
+/** Friendly group card — the primary navigation surface of the market. */
+function GroupCard({ group, onOpen }: { group: ComputedGroup; onOpen: () => void }) {
+  const { state } = useMarket();
+  const cat = CATEGORY_BY_ID[group.categoryId];
+  const offers = state.computed.offers.filter((o) => o.groupId === group.id);
+  const prices = offers.map((o) => o.unitPrice);
+  const minPrice = prices.length ? Math.min(...prices) : null;
+  const maxPrice = prices.length ? Math.max(...prices) : null;
+
+  const compatLabel: Record<string, string> = {
+    compatible: "Well aligned",
+    partial: "Partially aligned",
+    forming: "Still forming",
+  };
+
   return (
-    <span className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[10px] text-fog-500">
-      <span className="flex items-center gap-1.5">
-        <span className="h-2.5 w-2.5 rounded-full bg-fog-100" aria-hidden /> buyer
-      </span>
-      <span className="flex items-center gap-1.5">
-        <span className="h-2 w-2 rotate-45 border border-cyan-400" aria-hidden /> seller quote
-      </span>
-      <span className="flex items-center gap-1.5">
-        <span className="h-2.5 w-2.5 rounded-full border border-coral-500" aria-hidden /> forming pool
-      </span>
-    </span>
+    <li className="card-base flex flex-col p-5 transition-shadow hover:shadow-md">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <span className="h-3 w-3 rounded-full" style={{ background: cat.color }} aria-hidden />
+          <h3 className="font-display text-lg font-bold leading-snug text-fog-100">{group.name}</h3>
+        </div>
+        <span className="tick shrink-0 rounded-full border border-ink-600 px-2 py-0.5 text-fog-400">
+          {group.categoryId}
+        </span>
+      </div>
+
+      <p className="mt-2 line-clamp-2 text-[13px] leading-relaxed text-fog-300">{group.objective}</p>
+
+      <div className="mt-4 flex flex-wrap gap-2 text-[12px]">
+        <span className="rounded-full bg-ink-800 px-2.5 py-1 text-fog-300">
+          👥 {group.metrics.memberCount} buyers
+        </span>
+        <span className="rounded-full bg-ink-800 px-2.5 py-1 text-fog-300">
+          📦 {group.metrics.totalUnits} units
+        </span>
+        {minPrice != null && maxPrice != null && (
+          <span className="rounded-full bg-ink-800 px-2.5 py-1 text-fog-300">
+            💰 Sellers quote {formatMoney(minPrice)}–{formatMoney(maxPrice)}
+          </span>
+        )}
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-ink-700 pt-3">
+        <span className="text-xs text-fog-400">
+          {offers.length > 0
+            ? `${offers.length} offer${offers.length > 1 ? "s" : ""} competing · ${compatLabel[group.metrics.compatibility] ?? group.metrics.compatibility}`
+            : "No eligible offer yet — see why inside"}
+        </span>
+        <button
+          type="button"
+          onClick={onOpen}
+          className="rounded-full bg-coral-500 px-4 py-2 font-display text-sm font-bold text-ink-950 transition-colors hover:bg-coral-400"
+        >
+          See this group →
+        </button>
+      </div>
+    </li>
   );
 }
 
-/** Two-step reset keeps the destructive action deliberate. */
 function ResetDemoButton() {
   const { reset } = useMarket();
   const [confirming, setConfirming] = useState(false);
@@ -144,10 +245,16 @@ function ResetDemoButton() {
       type="button"
       onClick={handle}
       onBlur={() => setConfirming(false)}
-      className={`tick border px-3 py-1.5 transition-colors ${done ? "border-sage-400 text-sage-400" : confirming ? "border-coral-500 bg-coral-500 text-ink-950" : "border-ink-600 text-fog-400 hover:border-fog-100 hover:text-fog-100"}`}
+      className={`tick rounded-full border px-3.5 py-2 transition-colors ${
+        done
+          ? "border-sage-400 text-sage-400"
+          : confirming
+            ? "border-coral-500 bg-coral-500 text-ink-950"
+            : "border-ink-500 text-fog-400 hover:border-fog-300 hover:text-fog-100"
+      }`}
       aria-live="polite"
     >
-      {done ? "Demo restored ✓" : confirming ? "Confirm reset?" : "Reset demo"}
+      {done ? "Demo restored ✓" : confirming ? "Click again to confirm" : "Start over"}
     </button>
   );
 }

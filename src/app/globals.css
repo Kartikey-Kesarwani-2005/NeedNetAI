@@ -1,37 +1,42 @@
 @import "tailwindcss";
 
 @theme {
-  /* ── The Living Market palette ─────────────────────────── */
-  --color-ink-950: #07090f;
-  --color-ink-900: #0a0d14;
-  --color-ink-850: #0d1119;
-  --color-ink-800: #111623;
-  --color-ink-700: #1a2130;
-  --color-ink-600: #263042;
-  --color-ink-500: #3a465c;
-  --color-ink-400: #5b6880;
+  /* ── The Warm Market palette (light, friendly, handcrafted) ── */
+  /* Surfaces: paper → card → sunken → hairlines */
+  --color-ink-950: #2b1d12; /* deep espresso — scrims, text on coral */
+  --color-ink-900: #faf6ef; /* page paper */
+  --color-ink-850: #ffffff; /* card surface */
+  --color-ink-800: #f3ecdf; /* sunken / hover surface */
+  --color-ink-700: #e7ddca; /* hairline */
+  --color-ink-600: #d9cdb4; /* border */
+  --color-ink-500: #b6a988; /* strong line */
+  --color-ink-400: #8f8264; /* strongest line */
 
-  --color-fog-100: #e9edf4;
-  --color-fog-300: #aab3c4;
-  --color-fog-400: #7d879b;
-  --color-fog-500: #5d6678;
+  /* Text: warm ink (100 = primary, 300 = body, 400 = muted, 500 = faint) */
+  --color-fog-100: #2a2118;
+  --color-fog-300: #4a4036;
+  --color-fog-400: #6e6355;
+  --color-fog-500: #97897a;
 
-  --color-ivory-50: #f7f4ec;
-  --color-ivory-100: #f1ecdf;
-  --color-ivory-200: #e6dfcd;
-  --color-ivory-300: #d6cdb4;
-  --color-ivory-ink: #14161d;
-  --color-ivory-mute: #5b5a52;
+  /* Inverted ivory panels (create-page workstation) */
+  --color-ivory-50: #faf6ef;
+  --color-ivory-100: #f4efe4;
+  --color-ivory-200: #eae3d2;
+  --color-ivory-300: #ddd2ba;
+  --color-ivory-ink: #2a2118;
+  --color-ivory-mute: #9a8f7e;
 
-  --color-coral-400: #ff8a7d;
-  --color-coral-500: #ff6b5b;
-  --color-coral-600: #e0493a;
-  --color-cyan-400: #5cc8dc;
-  --color-amber-400: #e0a43c;
-  --color-sage-400: #84b899;
+  --color-coral-400: #f4573c; /* hover / strong accent text */
+  --color-coral-500: #ff6b5b; /* primary action */
+  --color-coral-600: #d8472f; /* readable coral on light */
+
+  /* Semantics readable on light: success / warn / info / AI */
+  --color-cyan-400: #0e94a6; /* teal info */
+  --color-amber-400: #b9791e; /* amber caution */
+  --color-sage-400: #3e8a63; /* sage success */
   /* AI/lilac: the app's AI accents (timeline "AI PARSE / AGENTS", agent UI) */
-  --color-lilac-300: #b49bff;
-  --color-lilac-400: #a085f2;
+  --color-lilac-300: #8b6cf0;
+  --color-lilac-400: #7653e8;
 
   --font-display: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
   --font-body: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
@@ -63,26 +68,19 @@ body {
   border-radius: 2px;
 }
 
-/* Fine hairline grid — the market's ground plane */
+/* Warm paper ground plane — faint hand-drawn grid */
 .market-grid {
   background-image:
-    linear-gradient(to right, rgba(233, 237, 244, 0.035) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(233, 237, 244, 0.035) 1px, transparent 1px);
+    linear-gradient(to right, rgba(42, 33, 24, 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(42, 33, 24, 0.045) 1px, transparent 1px);
   background-size: 56px 56px;
-}
-
-.ivory-paper {
-  background-image:
-    linear-gradient(to right, rgba(20, 22, 29, 0.04) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(20, 22, 29, 0.04) 1px, transparent 1px);
-  background-size: 48px 48px;
 }
 
 /* ── Micro label — mono tick used across the app ───────── */
 .tick {
   font-family: var(--font-mono);
-  font-size: 0.625rem;
-  letter-spacing: 0.22em;
+  font-size: 0.6875rem;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
@@ -134,25 +132,25 @@ body {
    remount (parity trick). Driven only by real `lastChange` state. */
 @keyframes node-updated-a {
   0% {
-    box-shadow: 0 0 0 0 rgba(180, 155, 255, 0.8);
+    box-shadow: 0 0 0 0 rgba(139, 108, 240, 0.55);
   }
   70% {
-    box-shadow: 0 0 0 14px rgba(180, 155, 255, 0);
+    box-shadow: 0 0 0 14px rgba(139, 108, 240, 0);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(180, 155, 255, 0);
+    box-shadow: 0 0 0 0 rgba(139, 108, 240, 0);
   }
 }
 
 @keyframes node-updated-b {
   0% {
-    box-shadow: 0 0 0 0 rgba(180, 155, 255, 0.8);
+    box-shadow: 0 0 0 0 rgba(139, 108, 240, 0.55);
   }
   70% {
-    box-shadow: 0 0 0 14px rgba(180, 155, 255, 0);
+    box-shadow: 0 0 0 14px rgba(139, 108, 240, 0);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(180, 155, 255, 0);
+    box-shadow: 0 0 0 0 rgba(139, 108, 240, 0);
   }
 }
 
@@ -205,6 +203,12 @@ body {
 
 .scrim-in {
   animation: scrim-in 0.25s ease both;
+}
+
+/* Shared card language — one soft, warm shadow used app-wide */
+.card-base {
+  background: var(--color-ink-850);
+  border: 1px solid var(--color-ink-600);
 }
 
 /* Reduced motion — keep function, drop ornament */

@@ -41,7 +41,7 @@ export function DemandNetwork({ dataset, preview = false }: DemandNetworkProps) 
 
   return (
     <div
-      className="market-grid relative h-full w-full overflow-hidden border border-ink-700 bg-ink-850"
+      className="market-grid relative h-full w-full overflow-hidden rounded-xl border border-ink-600 bg-ink-950"
       onMouseLeave={() => setHover(null)}
       aria-label={preview ? "Preview of the living demand network" : "Interactive living demand network"}
     >
@@ -198,7 +198,7 @@ export function DemandNetwork({ dataset, preview = false }: DemandNetworkProps) 
       {/* Hover tooltip */}
       {hover && (
         <div
-          className="pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-[135%] whitespace-nowrap border border-ink-600 bg-ink-950/95 px-2 py-1.5 font-mono text-[10px] text-fog-100 shadow-lg"
+          className="pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-[135%] whitespace-nowrap rounded border border-ink-500 bg-ink-850 px-2 py-1.5 font-mono text-[10px] text-fog-100 shadow-lg"
           style={{ left: `${hover.x}%`, top: `${hover.y}%` }}
           role="tooltip"
         >
@@ -206,7 +206,7 @@ export function DemandNetwork({ dataset, preview = false }: DemandNetworkProps) 
         </div>
       )}
 
-      {preview && <span className="tick pointer-events-none absolute bottom-3 right-4 text-fog-500">network preview — live view inside</span>}
+      <span className="tick pointer-events-none absolute right-4 bottom-3 text-ink-400">network — click any piece to inspect it</span>
     </div>
   );
 }

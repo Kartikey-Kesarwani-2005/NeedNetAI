@@ -64,14 +64,15 @@ export default function OrdersPage() {
       <TopNav />
       <main className="mx-auto max-w-[1000px] px-4 pb-24 pt-28 sm:px-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="tick text-coral-500">ORDER VAULT</p>
+          <p className="tick text-coral-600">ORDER HISTORY</p>
           <DemoBadge />
         </div>
-        <h1 className="mt-2 font-display text-4xl font-bold tracking-tight text-fog-100">Traceable checkouts</h1>
-        <p className="mt-3 max-w-2xl font-mono text-xs leading-relaxed text-fog-400">
-          Every attempt is recorded server-side at order creation — pending approvals stay visibly UNPAID, and only
-          orders whose PayPal capture the server verified are marked paid. Amounts are the engine&apos;s own computed
-          shares (EUR); the browser never set a price.
+        <h1 className="mt-2 font-display text-4xl font-bold tracking-tight text-fog-100">Your orders</h1>
+        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-fog-400">
+          Every checkout attempt is recorded on the server. Orders waiting for PayPal approval
+          stay clearly marked unpaid, and only orders whose PayPal capture the server verified are
+          marked paid. Amounts are the engine&apos;s own computed shares (EUR) — the browser never
+          set a price.
         </p>
 
         {orders == null && !error && (
@@ -79,35 +80,35 @@ export default function OrdersPage() {
             Reading the order store…
           </p>
         )}
-        {error && <p className="mt-10 border border-coral-500/40 p-4 font-mono text-xs text-coral-400">△ {error}</p>}
+        {error && <p className="mt-10 rounded-lg border border-coral-500/40 p-4 text-xs text-coral-600">△ {error}</p>}
 
         {orders != null && (
           <section aria-label="Order history" className="mt-10">
             {orders.length === 0 ? (
-              <div className="border border-dashed border-ink-600 p-8 text-center">
-                <p className="font-mono text-xs leading-relaxed text-fog-400">
-                  No checkouts yet. Pick an eligible offer in the{" "}
-                  <Link href="/market" className="text-coral-400 underline-offset-4 hover:underline">
-                    market explorer
+              <div className="grid place-items-center rounded-xl border border-dashed border-ink-500 bg-ink-850 p-10 text-center">
+                <p className="max-w-[42ch] text-sm leading-relaxed text-fog-400">
+                  No checkouts yet. Pick an eligible offer on the{" "}
+                  <Link href="/market" className="text-coral-600 underline-offset-4 hover:underline">
+                    market page
                   </Link>{" "}
                   and complete a PayPal Sandbox payment.
                 </p>
               </div>
             ) : (
-              <ul className="border-y border-ink-700">
+              <ul className="grid gap-4">
                 {orders.map((o) => {
                   const s = STATUS_STYLE[o.status];
                   return (
-                    <li key={o.reference} className="grid gap-3 py-5 sm:grid-cols-[minmax(0,1fr)_auto]">
+                    <li key={o.reference} className="card-base grid gap-3 rounded-xl p-5 sm:grid-cols-[minmax(0,1fr)_auto]">
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                          <span className="font-mono text-sm text-fog-100">{o.reference}</span>
+                          <span className="font-display text-sm font-bold text-fog-100">{o.reference}</span>
                           <span className="tick text-fog-500">
                             {o.groupId} / {o.offerId.toUpperCase()}
                           </span>
                         </div>
-                        <p className="mt-1 font-mono text-[10px] text-fog-500">
-                          {o.sellerName} · {o.strategyLabel} · buyer {o.buyerId} · created{" "}
+                        <p className="mt-1 text-xs text-fog-400">
+                          {o.sellerName} · {o.strategyLabel} strategy · buyer {o.buyerId} · created{" "}
                           {new Date(o.createdAt).toLocaleString("en-GB")}
                           {o.capturedAt ? ` · captured ${new Date(o.capturedAt).toLocaleString("en-GB")}` : ""}
                         </p>
@@ -119,9 +120,9 @@ export default function OrdersPage() {
                       <div className="flex flex-col items-start gap-2 sm:items-end">
                         <span className="font-display text-xl font-bold text-fog-100">
                           {formatMoney(Number(o.amount))}{" "}
-                          <span className="font-mono text-xs font-normal text-fog-500">{o.currency}</span>
+                          <span className="text-xs font-normal text-fog-500">{o.currency}</span>
                         </span>
-                        <span className={`tick border px-1.5 py-0.5 ${s.cls}`}>{s.label}</span>
+                        <span className={`tick rounded-full border px-2 py-0.5 ${s.cls}`}>{s.label}</span>
                       </div>
                     </li>
                   );
@@ -131,10 +132,10 @@ export default function OrdersPage() {
           </section>
         )}
 
-        <p className="mt-10 border border-amber-400/30 bg-amber-400/5 p-3 font-mono text-[10px] leading-relaxed text-amber-400">
-          LOCAL DEMO STATE · Orders live in the server&apos;s local data file: they survive restarts of this dev machine
-          but are not deployed persistence, and PayPal Sandbox captures are payment simulations against test accounts —
-          no real goods, no escrow, no group settlement.
+        <p className="mt-10 rounded-lg border border-amber-400/40 bg-amber-400/5 p-3 text-xs leading-relaxed text-amber-400">
+          LOCAL DEMO DATA · Orders live in the server&apos;s local data file — they survive a
+          restart of this machine but are not deployed persistence. PayPal Sandbox captures are
+          payment simulations against test accounts: no real goods, no escrow, no group settlement.
         </p>
       </main>
     </div>

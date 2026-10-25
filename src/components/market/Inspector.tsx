@@ -19,11 +19,12 @@ export function Inspector({ onOpenGroupDetail }: { onOpenGroupDetail: (groupId: 
   if (!sel) {
     return (
       <section>
-        <Header title="Inspector" meta="idle" />
-        <div className="mt-6 border border-dashed border-ink-600 p-6 text-center">
-          <p className="font-display text-lg text-fog-300">Nothing selected.</p>
-          <p className="mx-auto mt-2 max-w-[24ch] font-mono text-[10px] leading-relaxed text-fog-500">
-            Pick a buyer dot, a group pill or a diamond quote in the network — its engine record opens here.
+        <Header title="Details panel" meta="idle" />
+        <div className="mt-6 rounded-xl border border-dashed border-ink-500 bg-ink-800/60 p-6 text-center">
+          <p className="font-display text-base font-semibold text-fog-300">Click something to see its story</p>
+          <p className="mx-auto mt-2 text-xs leading-relaxed text-fog-500">
+            Open a group card above, or turn on the market map and click a buyer, a group or an
+            offer — everything computed about it shows up here.
           </p>
         </div>
       </section>
@@ -33,8 +34,8 @@ export function Inspector({ onOpenGroupDetail }: { onOpenGroupDetail: (groupId: 
   return (
     <section className="rise-in" key={`${sel.kind}-${sel.id}`}>
       <div className="flex items-center justify-between">
-        <Header title="Inspector" meta={sel.kind} />
-        <button type="button" onClick={() => select(null)} className="tick border border-ink-600 px-2 py-1 text-fog-400 transition-colors hover:border-fog-400 hover:text-fog-100">
+        <Header title="Details panel" meta={sel.kind} />
+        <button type="button" onClick={() => select(null)} className="tick rounded-full border border-ink-600 px-3 py-1.5 text-fog-400 transition-colors hover:border-ink-500 hover:text-fog-100">
           Clear ✕
         </button>
       </div>
@@ -60,8 +61,8 @@ function Header({ title, meta }: { title: string; meta: string }) {
 function Row({ k, v }: { k: string; v: string }) {
   return (
     <div className="flex items-baseline justify-between gap-4 border-t border-ink-700/60 py-2">
-      <span className="tick shrink-0 text-fog-500">{k}</span>
-      <span className="min-w-0 text-right font-mono text-xs text-fog-100">{v}</span>
+      <span className="shrink-0 text-xs text-fog-500">{k}</span>
+      <span className="min-w-0 text-right text-[13px] text-fog-100">{v}</span>
     </div>
   );
 }
@@ -126,7 +127,7 @@ function BuyerDetail({
       </dl>
 
       {justAdapted && (
-        <p className="tick mt-3 border border-violet-400/40 bg-violet-400/5 px-3 py-2 text-violet-300">
+        <p className="tick mt-3 rounded-lg border border-lilac-300/50 bg-lilac-300/10 px-3 py-2 text-lilac-400">
           <span aria-hidden>{"//"}&nbsp;</span>
           live adaptation: {state.lastChange?.summary}
         </p>
@@ -138,7 +139,7 @@ function BuyerDetail({
         <button
           type="button"
           onClick={() => onOpenGroupDetail(group.id)}
-          className="tick mt-4 w-full border border-ink-600 py-2 text-fog-300 transition-colors hover:border-fog-100 hover:text-fog-100"
+          className="tick mt-4 w-full rounded-full border border-ink-600 py-2 text-fog-300 transition-colors hover:border-ink-500 hover:text-fog-100"
         >
           Open {group.name} detail →
         </button>
@@ -147,7 +148,7 @@ function BuyerDetail({
       <button
         type="button"
         onClick={() => onWithdraw(buyer.id)}
-        className="tick mt-2 w-full border border-coral-600/50 py-2 text-coral-500 transition-colors hover:bg-coral-600/10"
+        className="tick mt-2 w-full rounded-full border border-coral-600/50 py-2 text-coral-600 transition-colors hover:bg-coral-500/10"
         title="Removes this demo demand and triggers engine recalculation"
       >
         Withdraw need (demo)
@@ -216,26 +217,26 @@ function UpdateNeedEditor({
   };
 
   const inputCls =
-    "w-full border border-ink-600 bg-ink-900 px-2.5 py-2 font-mono text-xs text-fog-100 outline-none transition-colors focus:border-fog-300";
-  const labelCls = "tick block text-fog-500";
+    "w-full rounded-lg border border-ink-600 bg-ink-850 px-2.5 py-2 text-[13px] text-fog-100 outline-none transition-colors focus:border-ink-500";
+  const labelCls = "block text-xs font-medium text-fog-500";
 
   if (!open) {
     return (
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="tick mt-4 w-full border border-violet-400/50 py-2 text-violet-300 transition-colors hover:bg-violet-400/10"
+        className="tick mt-4 w-full rounded-full border border-lilac-300/60 py-2 text-lilac-400 transition-colors hover:bg-lilac-300/10"
       >
-        Update need (live adaptation)
+        Change this need — market re-matches live
       </button>
     );
   }
 
   return (
-    <div className="rise-in mt-4 border border-ink-600 p-4" aria-label={"Update need form"}>
+    <div className="rise-in mt-4 rounded-xl border border-ink-600 bg-ink-800/50 p-4" aria-label={"Update need form"}>
       <div className="flex items-center justify-between">
         <span className="tick text-fog-300">Rewrite the demand — the engine re-matches live</span>
-        <button type="button" onClick={() => setOpen(false)} className="tick text-fog-500 hover:text-fog-200" aria-label="Close update form">
+        <button type="button" onClick={() => setOpen(false)} className="tick text-fog-500 hover:text-fog-300" aria-label="Close update form">
           ✕
         </button>
       </div>
@@ -299,9 +300,9 @@ function UpdateNeedEditor({
       </div>
 
       {errors && (
-        <ul className="mt-3 space-y-1 border border-coral-500/40 bg-coral-500/5 px-3 py-2" role="alert">
+        <ul className="mt-3 space-y-1 rounded-lg border border-coral-500/40 bg-coral-500/10 px-3 py-2" role="alert">
           {Object.entries(errors).map(([field, msg]) => (
-            <li key={field} className="text-[12px] text-coral-400">
+            <li key={field} className="text-[12px] text-coral-600">
               {field}: {msg}
             </li>
           ))}
@@ -309,13 +310,13 @@ function UpdateNeedEditor({
       )}
 
       <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
-        <button type="button" onClick={submit} className="tick bg-coral-500 py-2.5 text-ink-950 transition-colors hover:bg-coral-400">
-          Apply change → engine recalculates
+        <button type="button" onClick={submit} className="tick rounded-full bg-coral-500 py-2.5 text-ink-950 transition-colors hover:bg-coral-400">
+          Apply change → market recalculates
         </button>
         <button
           type="button"
           onClick={() => { setOpen(false); setErrors(null); }}
-          className="tick border border-ink-600 px-4 py-2.5 text-fog-400 transition-colors hover:border-fog-400 hover:text-fog-100"
+          className="tick rounded-full border border-ink-600 px-4 py-2.5 text-fog-400 transition-colors hover:border-ink-500 hover:text-fog-100"
         >
           Cancel
         </button>
@@ -375,7 +376,7 @@ function GroupSummary({
       <button
         type="button"
         onClick={() => onOpenDetail(computedGroup.id)}
-        className="tick mt-4 w-full bg-coral-500 py-2.5 text-ink-950 transition-colors hover:bg-coral-400"
+        className="tick mt-4 w-full rounded-full bg-coral-500 py-2.5 text-ink-950 transition-colors hover:bg-coral-400"
       >
         Open group detail →
       </button>

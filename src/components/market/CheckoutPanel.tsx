@@ -403,8 +403,8 @@ export function CheckoutPanel({ offer, group }: { offer: SimulatedOffer; group: 
       )}
 
       {checkout.step === "captured" && (
-        <div className="mt-3 border border-[#84B899]/60 bg-[#84B899]/5 p-3" role="status">
-          <p className="font-display text-lg font-bold text-[#84B899]">Verified capture ✓</p>
+        <div className="mt-3 border border-sage-400/60 bg-sage-400/10 p-3" role="status">
+          <p className="font-display text-lg font-bold text-sage-400">Verified capture ✓</p>
           <p className="mt-1 font-mono text-[11px] leading-relaxed text-fog-300">
             The server verified the PayPal capture against the computed price before this message appeared.
             <br />
