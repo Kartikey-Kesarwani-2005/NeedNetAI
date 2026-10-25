@@ -43,7 +43,12 @@ declare global {
 
 let sdkRequest: Promise<PayPalNamespace> | null = null;
 
-function loadPayPalSdk(clientId: string): Promise<PayPalNamespace> {
+/**
+ * buyer-country is a sandbox-only SDK parameter: it makes the popup serve the
+ * buyer-side experience for the given country instead of the developer
+ * account's region, which sidesteps the known unsupported-region login error.
+ */
+function loadPayPalSdk(clientId: string, buyerCountry?: string): Promise<PayPalNamespace> {
   const existing = window.paypal;
   if (existing) return Promise.resolve(existing as PayPalNamespace);
   if (sdkRequest) return sdkRequest;
@@ -53,6 +58,7 @@ function loadPayPalSdk(clientId: string): Promise<PayPalNamespace> {
       "client-id": clientId,
       currency: "EUR",
       intent: "capture",
+      ...(buyerCountry ? { "buyer-country": buyerCountry } : {}),
     })}`;
     script.async = true;
     script.onload = () => {
@@ -92,7 +98,7 @@ type CheckoutState =
 export function CheckoutPanel({ offer, group }: { offer: SimulatedOffer; group: ComputedGroup | null }) {
   const { state, orderCaptured, orderAborted } = useMarket();
   const [checkout, setCheckout] = useState<CheckoutState>({ step: "form" });
-  const [paypal, setPaypal] = useState<{ configured: boolean; clientId: string | null } | null>(null);
+  const [paypal, setPaypal] = useState<{ configured: boolean; environment: string | null; clientId: string | null } | null>(null);
   const [buying, setBuying] = useState<string>("");
   const buttonsHost = useRef<HTMLDivElement | null>(null);
   const activeButtons = useRef<{ close: () => void } | null>(null);
@@ -104,10 +110,10 @@ export function CheckoutPanel({ offer, group }: { offer: SimulatedOffer; group: 
       try {
         const res = await fetch("/api/paypal/config", { headers: { Accept: "application/json" } });
         if (!res.ok) throw new Error("config route failed");
-        const payload = (await res.json()) as { paypal: { configured: boolean; clientId: string | null } };
+        const payload = (await res.json()) as { paypal: { configured: boolean; environment: string | null; clientId: string | null } };
         if (!cancelled) setPaypal(payload.paypal);
       } catch {
-        if (!cancelled) setPaypal({ configured: false, clientId: null });
+        if (!cancelled) setPaypal({ configured: false, environment: null, clientId: null });
       }
     })();
     return () => {
@@ -209,7 +215,7 @@ export function CheckoutPanel({ offer, group }: { offer: SimulatedOffer; group: 
       requestAnimationFrame(() => {
         (async () => {
           try {
-            const ns = await loadPayPalSdk(paypal.clientId!);
+            const ns = await loadPayPalSdk(paypal.clientId!, paypal.environment === "sandbox" ? "DE" : undefined);
             const host = buttonsHost.current;
             if (!host) return;
             const buttons = ns.Buttons({
