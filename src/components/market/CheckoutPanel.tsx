@@ -215,7 +215,7 @@ export function CheckoutPanel({ offer, group }: { offer: SimulatedOffer; group: 
       requestAnimationFrame(() => {
         (async () => {
           try {
-            const ns = await loadPayPalSdk(paypal.clientId!, paypal.environment === "sandbox" ? "DE" : undefined);
+            const ns = await loadPayPalSdk(paypal.clientId!);
             const host = buttonsHost.current;
             if (!host) return;
             const buttons = ns.Buttons({
