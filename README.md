@@ -50,7 +50,7 @@ Verification commands:
 ```bash
 npm run typecheck  # strict TypeScript, no emit
 npm run lint       # eslint (next/core-web-vitals + typescript)
-npm run test       # vitest suite (104 tests: engine + Phase 3 + Phase 4 payments)
+npm run test       # vitest suite (117 tests: engine + Phase 3 + Phase 4 payments)
 npm run build      # production build
 npm run start      # serve the production build
 ```
@@ -175,6 +175,10 @@ model response is coerced and validated before it can touch state.
   (zero new dependencies; structured JSON output)
 
 ## Architecture
+
+> **Judge-facing architecture document with diagrams:** [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) —
+> system overview, checkout state machine, the agentic loop and every security/honesty
+> invariant in one place.
 
 ```
 src/engine/           ← pure, deterministic matching engine (no React, no randomness)
