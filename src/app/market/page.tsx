@@ -58,6 +58,37 @@ export default function MarketPage() {
           </div>
         </div>
 
+        {/* FIRST-VISIT EXPLAINERS — a stranger must get it in 10 seconds */}
+        <div className="mt-6 grid gap-3 sm:grid-cols-3">
+          {[
+            {
+              n: "1",
+              head: "Sellers have things to sell",
+              body: "Three demo sellers stock office supplies, laptops, printers and more. They're simulated — their prices compete, nothing real is shipped.",
+            },
+            {
+              n: "2",
+              head: "Buyers form a group",
+              body: "Our 20 simulated buyers state needs (budget, quantity, deadline). The engine finds who can share one bulk order — that circle is a demand group.",
+            },
+            {
+              n: "3",
+              head: "You pay your own share",
+              body: "Pick any offer → see which member's share you're paying → approve it in PayPal Sandbox with test money. One person, one share, fully verified.",
+            },
+          ].map((s) => (
+            <div key={s.n} className="card-base flex gap-3 p-4">
+              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-ink-950 font-display text-sm font-bold text-ivory-50">
+                {s.n}
+              </span>
+              <div>
+                <p className="font-display text-sm font-bold text-fog-100">{s.head}</p>
+                <p className="mt-0.5 text-[12.5px] leading-relaxed text-fog-400">{s.body}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
         <div className="mt-6">
           <MetricsStrip />
         </div>
