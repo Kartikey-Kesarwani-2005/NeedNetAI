@@ -149,8 +149,8 @@ export default function LandingPage() {
         </section>
 
         <footer className="flex flex-wrap items-center justify-between gap-4 border-t border-ink-600 py-8">
-          <span className="font-display text-sm font-bold text-fog-100">neednet<span className="text-coral-500">*</span></span>
-          <span className="tick text-fog-500">SYNTHETIC DEMO DATA · PAYPAL SANDBOX TEST ACCOUNTS · NO LIVE MARKET, NO REAL VENDOR</span>
+          <span className="font-print text-base font-semibold text-fog-100">NeedNet<span className="text-coral-500">.</span></span>
+          <Link href="/create" className="tick text-coral-600 underline-offset-4 hover:underline">Add a need →</Link>
         </footer>
       </main>
     </div>

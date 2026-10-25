@@ -35,7 +35,7 @@ const STATUS_STYLE: Record<OrderRecord["status"], { label: string; cls: string }
   created: { label: "PENDING — awaiting PayPal approval", cls: "border-amber-400/50 text-amber-400" },
   captured: { label: "PAID — capture verified server-side", cls: "border-sage-400/60 bg-sage-400/10 text-sage-400" },
   cancelled: { label: "CANCELLED — unpaid", cls: "border-ink-600 text-fog-400" },
-  failed: { label: "FAILED — no purchase recorded", cls: "border-coral-500/60 text-coral-400" },
+  failed: { label: "FAILED — no purchase recorded", cls: "border-coral-600/60 text-coral-600" },
 };
 
 export default function OrdersPage() {

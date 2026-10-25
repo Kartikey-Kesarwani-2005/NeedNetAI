@@ -112,7 +112,7 @@ export function GroupSheet({ groupId, onClose, onReviewOffer }: GroupSheetProps)
                 </button>
                 <button
                   type="button"
-                  className="tick text-fog-500 underline offset-2 transition-colors hover:text-coral-500"
+                  className="tick text-coral-600 underline underline-offset-2 transition-colors hover:text-coral-400"
                   onClick={() => withdraw(mem.id)}
                   title="Removes this demo buyer and immediately recalculates the group"
                 >

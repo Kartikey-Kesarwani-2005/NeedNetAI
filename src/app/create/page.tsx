@@ -478,7 +478,7 @@ function Confirmation({ buyer, onAnother }: { buyer: Buyer; onAnother: () => voi
       </dl>
 
       <div className="mt-8 flex flex-wrap gap-3">
-        <Link href="/market" className="bg-ivory-ink px-6 py-3 font-display text-base font-bold text-ivory-50 transition-colors hover:bg-black">
+        <Link href="/market" className="bg-ivory-ink px-6 py-3 font-display text-base font-bold text-ivory-50 transition-opacity hover:opacity-90">
           See it in the market →
         </Link>
         <button type="button" onClick={onAnother} className="border border-ivory-ink/40 px-6 py-3 font-display text-base font-bold transition-colors hover:border-ivory-ink">

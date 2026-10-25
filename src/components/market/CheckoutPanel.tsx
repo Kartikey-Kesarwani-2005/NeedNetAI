@@ -365,7 +365,7 @@ export function CheckoutPanel({ offer, group }: { offer: SimulatedOffer; group: 
             type="button"
             onClick={() => void startCheckout()}
             disabled={buying === "" || selectedCost == null}
-            className="tick mt-3 w-full border border-coral-500/70 bg-coral-500/10 px-4 py-2.5 text-coral-300 transition-colors hover:bg-coral-500/20 hover:text-coral-200 disabled:cursor-not-allowed disabled:opacity-40"
+            className="tick mt-3 w-full rounded-full border border-coral-500/70 bg-coral-500/10 px-4 py-2.5 text-coral-600 transition-colors hover:bg-coral-500 hover:text-ink-950 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {selectedCost != null ? `Buy my share — ${formatMoney(selectedCost)} (EUR)` : "Buy my share"}
           </button>
@@ -403,16 +403,31 @@ export function CheckoutPanel({ offer, group }: { offer: SimulatedOffer; group: 
       )}
 
       {checkout.step === "captured" && (
-        <div className="mt-3 border border-sage-400/60 bg-sage-400/10 p-3" role="status">
-          <p className="font-display text-lg font-bold text-sage-400">Verified capture ✓</p>
-          <p className="mt-1 font-mono text-[11px] leading-relaxed text-fog-300">
-            The server verified the PayPal capture against the computed price before this message appeared.
-            <br />
-            Order reference <span className="text-fog-100">{checkout.reference}</span>
-            <br />
-            Capture <span className="text-fog-100">…{checkout.captureId.slice(-8)}</span> · {formatMoney(Number(order?.amount ?? 0))} EUR ·
-            PayPal Sandbox (a payment simulation, not a real vendor)
+        <div className="relative mt-3 rounded-lg border border-sage-400/60 bg-sage-400/10 p-4" role="status">
+          {/* The rubber stamp SLAMS down when the server verifies the capture */}
+          <span
+            className="stamp stamp-slam absolute -top-4 right-4 z-10 bg-ink-850 text-sage-400"
+            style={{ fontSize: "0.75rem", transform: "rotate(-8deg)" }}
+          >
+            ✓ PAID · VERIFIED
+          </span>
+          <p className="font-print text-xl font-semibold text-sage-400">Verified capture</p>
+          <p className="mt-1 text-[12px] leading-relaxed text-fog-300">
+            The server verified the PayPal capture against the computed price before this message
+            appeared.
           </p>
+          <p className="mt-2 text-[13px] text-fog-100">
+            Order <b>{checkout.reference}</b> · capture …{checkout.captureId.slice(-8)} ·{" "}
+            {formatMoney(Number(order?.amount ?? 0))} EUR
+          </p>
+          <p className="mt-1 font-mono text-[10px] text-fog-500">
+            PayPal Sandbox — a payment simulation, not a real vendor
+          </p>
+          <div className="mt-2 inline-block rounded-sm bg-ink-950 px-3 py-1.5 text-white">
+            <p className="font-print text-sm font-semibold">
+              {formatMoney(Number(order?.amount ?? 0))} — paid by sandbox buyer ✓
+            </p>
+          </div>
         </div>
       )}
 
