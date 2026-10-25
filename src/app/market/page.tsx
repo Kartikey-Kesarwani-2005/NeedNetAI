@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import { TopNav } from "@/components/TopNav";
 import { DemoBadge } from "@/components/ui/atoms";
 import { DemandNetwork } from "@/components/network/DemandNetwork";
@@ -91,8 +91,8 @@ export default function MarketPage() {
                 </div>
               ) : (
                 <ul className="grid gap-4 sm:grid-cols-2">
-                  {filteredGroups.map((g) => (
-                    <GroupCard key={g.id} group={g} onOpen={() => setSheetGroupId(g.id)} />
+                  {filteredGroups.map((g, i) => (
+                    <GroupCard key={g.id} group={g} index={i} onOpen={() => setSheetGroupId(g.id)} />
                   ))}
                 </ul>
               )}
@@ -170,7 +170,15 @@ export default function MarketPage() {
 }
 
 /** Friendly group card — the primary navigation surface of the market. */
-function GroupCard({ group, onOpen }: { group: ComputedGroup; onOpen: () => void }) {
+function GroupCard({
+  group,
+  index,
+  onOpen,
+}: {
+  group: ComputedGroup;
+  index: number;
+  onOpen: () => void;
+}) {
   const { state } = useMarket();
   const cat = CATEGORY_BY_ID[group.categoryId];
   const offers = state.computed.offers.filter((o) => o.groupId === group.id);
@@ -185,7 +193,10 @@ function GroupCard({ group, onOpen }: { group: ComputedGroup; onOpen: () => void
   };
 
   return (
-    <li className="card-base relative flex flex-col overflow-hidden rounded-2xl p-5 transition-shadow hover:shadow-md">
+    <li
+      className="card-base card-lift rise relative flex flex-col overflow-hidden rounded-2xl p-5 transition-shadow hover:shadow-md"
+      style={{ "--i": index } as CSSProperties}
+    >
       {/* Engine's pick — a ledger filing tab straight on the card's top edge */}
       {offers.length > 0 && offers.some((o) => o.recommended) && (
         <span className="tag-tab bg-sage-400/10 text-sage-500">
@@ -213,7 +224,7 @@ function GroupCard({ group, onOpen }: { group: ComputedGroup; onOpen: () => void
           📦 {group.metrics.totalUnits} units
         </span>
         {minPrice != null && maxPrice != null && (
-          <span className="rounded-full bg-ink-800 px-2.5 py-1 text-fog-300">
+          <span className="rounded-full bg-ink-800 px-2.5 py-1 tabular-nums text-fog-300">
             💰 Sellers quote {formatMoney(minPrice)}–{formatMoney(maxPrice)}
           </span>
         )}

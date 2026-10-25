@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { CATEGORY_BY_ID, QUALITY_LABEL, formatMoney, type Buyer } from "@/data/demo";
+import type { CSSProperties } from "react";
 import { useMarket } from "@/state/store";
 import type { SimulatedOffer } from "@/engine/offers";
 import type { PurchaseRecord } from "@/state/reducer";
@@ -42,8 +43,8 @@ export function OfferLedger({ onReview }: { onReview: (offerId: string) => void 
         </div>
       ) : (
         <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {visible.map((o) => (
-            <OfferCard key={o.id} offer={o} focusedGroup={state.groupId} onReview={onReview} />
+          {visible.map((o, i) => (
+            <OfferCard key={o.id} offer={o} index={i} focusedGroup={state.groupId} onReview={onReview} />
           ))}
         </ul>
       )}
@@ -53,10 +54,12 @@ export function OfferLedger({ onReview }: { onReview: (offerId: string) => void 
 
 function OfferCard({
   offer,
+  index,
   focusedGroup,
   onReview,
 }: {
   offer: SimulatedOffer;
+  index: number;
   focusedGroup: string | null;
   onReview: (offerId: string) => void;
 }) {
@@ -69,9 +72,10 @@ function OfferCard({
 
   return (
     <li
-      className={`card-base relative flex flex-col overflow-hidden rounded-2xl p-5 transition-shadow hover:shadow-md ${
+      className={`card-base card-lift rise relative flex flex-col overflow-hidden rounded-2xl p-5 transition-shadow hover:shadow-md ${
         hasTab ? "pt-12" : ""
       } ${isForFocusedGroup ? "border-coral-500" : ""}`}
+      style={{ "--i": index } as CSSProperties}
     >
       {/* Ledger tabs: PAID wins over engine's pick — one tab per card, never stacked */}
       {purchased ? (
@@ -94,7 +98,7 @@ function OfferCard({
       </p>
 
       {/* Headline price — printed like a ledger figure */}
-      <div className="mt-3 flex items-baseline gap-2">
+      <div className="mt-3 flex items-baseline gap-2 tabular-nums">
         <span className="font-print text-3xl font-semibold text-fog-100">{formatMoney(offer.unitPrice)}</span>
         <span className="text-xs text-fog-400">per unit</span>
       </div>

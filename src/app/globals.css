@@ -278,6 +278,79 @@ body::after {
   opacity: 0.55;
 }
 
+/* Card micro-lift — a quiet breath as the pointer passes over */
+.card-lift {
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.card-lift:hover {
+  transform: translateY(-2px);
+}
+
+/* Staggered reveal — cards rise into the page one after another */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.rise {
+  animation: rise 0.55s cubic-bezier(0.2, 0.8, 0.3, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 55ms);
+}
+
+/* Ledger figures align digit-behind-digit like real print ledgers */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Brand selection — highlighted like coral stamping ink */
+::selection {
+  background: var(--color-coral-500);
+  color: var(--color-ink-950);
+}
+
+/* Thin warm scrollbar — the ledger's own binding edge */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-ink-500) transparent;
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-ink-500);
+  border-radius: 999px;
+  border: 2px solid var(--color-ink-900);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-ink-400);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Accessibility: anyone preferring less motion gets a still page */
+@media (prefers-reduced-motion: reduce) {
+  .rise,
+  .stamp-slam {
+    animation: none;
+  }
+  .card-lift {
+    transition: none;
+  }
+  .card-lift:hover {
+    transform: none;
+  }
+  .ticker-track {
+    animation-duration: 90s;
+  }
+}
+
 /* Receipt panel: perforated tear-line top + bottom */
 .receipt {
   position: relative;
