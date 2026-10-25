@@ -247,6 +247,37 @@ body::after {
   transform: rotate(-3deg);
 }
 
+/* Ledger filing tab — a STRAIGHT folder-tab fused to a card's top edge.
+   Reads like a filed page in the bazaar ledger: no rotation, no float. */
+.tag-tab {
+  position: absolute;
+  top: -1px; /* fuses with the card's border line; clipped clean by overflow-hidden */
+  left: 28px;
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  padding: 0.28em 0.9em 0.34em 1.1em;
+  border: 1px dashed currentColor;
+  border-top: 0;
+  border-radius: 0 0 10px 0;
+}
+/* punched eyelet — a tiny ring near the fold, like a stringed price tag */
+.tag-tab::after {
+  content: "";
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  opacity: 0.55;
+}
+
 /* Receipt panel: perforated tear-line top + bottom */
 .receipt {
   position: relative;

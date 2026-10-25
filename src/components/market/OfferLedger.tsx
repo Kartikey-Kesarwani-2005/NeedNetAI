@@ -65,20 +65,23 @@ function OfferCard({
   const cat = CATEGORY_BY_ID[offer.categoryId];
   const isForFocusedGroup = focusedGroup != null && offer.groupId === focusedGroup;
   const purchased = state.purchases[offer.id]?.status === "captured";
+  const hasTab = purchased || offer.recommended;
 
   return (
     <li
       className={`card-base relative flex flex-col overflow-hidden rounded-2xl p-5 transition-shadow hover:shadow-md ${
-        isForFocusedGroup ? "border-coral-500" : ""
-      }`}
+        hasTab ? "pt-12" : ""
+      } ${isForFocusedGroup ? "border-coral-500" : ""}`}
     >
-      {offer.recommended && (
-        <span className="stamp absolute -right-3 top-4 z-10 bg-ink-850 text-sage-400">
-          ★ Engine&apos;s pick · {offer.score.toFixed(2)}
-        </span>
-      )}
-      {purchased && (
-        <span className="stamp absolute -right-3 top-4 z-10 bg-ink-850 text-cyan-400">PAID · SANDBOX</span>
+      {/* Ledger tabs: PAID wins over engine's pick — one tab per card, never stacked */}
+      {purchased ? (
+        <span className="tag-tab bg-cyan-400/10 text-cyan-500">✓ Paid · sandbox</span>
+      ) : (
+        offer.recommended && (
+          <span className="tag-tab bg-sage-400/10 text-sage-500">
+            ★ Engine&apos;s pick · {offer.score.toFixed(2)}
+          </span>
+        )
       )}
 
       <div className="mt-2 flex items-center gap-2.5">

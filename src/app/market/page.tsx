@@ -186,9 +186,9 @@ function GroupCard({ group, onOpen }: { group: ComputedGroup; onOpen: () => void
 
   return (
     <li className="card-base relative flex flex-col overflow-hidden rounded-2xl p-5 transition-shadow hover:shadow-md">
-      {/* Engine's pick — a rotated rubber stamp pinned on the card edge */}
+      {/* Engine's pick — a ledger filing tab straight on the card's top edge */}
       {offers.length > 0 && offers.some((o) => o.recommended) && (
-        <span className="stamp absolute -left-2 top-4 z-10 bg-ink-850 text-sage-400">
+        <span className="tag-tab bg-sage-400/10 text-sage-500">
           ★ Engine&apos;s pick inside
         </span>
       )}
