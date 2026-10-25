@@ -1,10 +1,10 @@
-# NeedNet AI — Phase 3: The Market That Forms Around You
+# NeedNet AI — Phase 4: Real Sandbox Checkout
 
-**A demand-formation marketplace, demonstrated on synthetic data.**
+**The Market That Forms Around You — a demand-formation marketplace, demonstrated on synthetic data.**
 
 NeedNet AI organizes scattered customer demand into compatible groups so that competing
-seller strategies respond with ranked, explainable offers — with every buyer approving
-their own purchase.
+seller strategies respond with ranked, explainable offers — and every buyer approves their
+own purchase through a genuine **PayPal Sandbox** checkout that is verified server-side.
 
 - **Phase 1 — Living Demand Network:** the constellation-style interface for buyers, groups and quotes.
 - **Phase 2 — Intelligence Engine:** a real deterministic matching engine that computes
@@ -13,6 +13,9 @@ their own purchase.
   in plain English, Hindi or Hinglish; a typed AI-or-rules interpretation fills the form;
   buyers state priorities as free text and revise their demand live — the engine, network
   and timeline recalculate around every change.
+- **Phase 4 — Real PayPal Sandbox checkout:** eligible offers open a genuine Sandbox
+  payment flow (JS SDK approval → server-side capture with strict verification → verified
+  order result), an order vault for traceability, and a rate-limited, idempotent API.
 
 ---
 
@@ -43,10 +46,77 @@ Verification commands:
 ```bash
 npm run typecheck  # strict TypeScript, no emit
 npm run lint       # eslint (next/core-web-vitals + typescript)
-npm run test       # vitest suite (66 tests: engine + Phase 3)
+npm run test       # vitest suite (104 tests: engine + Phase 3 + Phase 4 payments)
 npm run build      # production build
 npm run start      # serve the production build
 ```
+
+## PayPal Sandbox configuration (required only for checkout)
+
+Create a Sandbox REST app at **[developer.paypal.com](https://developer.paypal.com/dashboard/)** →
+*Apps & Credentials* → *Sandbox*, then:
+
+```bash
+cp .env.example .env   # then edit .env — never commit it
+```
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `PAYPAL_CLIENT_ID` | *(empty)* | Sandbox REST app client id. Public by design — the JS-SDK script URL needs it. Empty ⇒ checkout shows an informative *not configured* state; no payment can occur or be faked. |
+| `PAYPAL_CLIENT_SECRET` | *(empty)* | Sandbox app secret. Read **only** inside `src/paypal/` and the order routes (`runtime = "nodejs"`). Never bundled client-side, never logged, never returned by any API. |
+| `PAYPAL_ENVIRONMENT` | `sandbox` | `sandbox` (default) or `live`. The browser-facing gate refuses anything but `sandbox` — live credentials never drive the demo UI. |
+
+You also need a **Sandbox personal (buyer) test account** (auto-created by PayPal under
+*Testing Tools → Sandbox accounts*) with its password — this is the "test buyer" used at
+approval time.
+
+Security invariants: the secret never crosses a client boundary; all money is EUR computed
+by the server's deterministic engine re-run; no client-submitted total is ever trusted.
+
+## PayPal Sandbox flow (Phase 4)
+
+1. **Select an eligible offer** — Review modal on a computed quote.
+2. **Create a pending order** — `POST /api/orders` sends only ids + the current buyer
+   records (each re-validated via the engine's own `normalizeDemand` path). The server
+   re-runs `computeMarket` and derives the buyer's share (`offer.perBuyerCost[buyerId]`)
+   itself; creates the PayPal order (`POST /v2/checkout/orders`, intent CAPTURE,
+   `custom_id` = internal reference) and stores a pending `data/orders.json` record.
+3. **Approve** — PayPal JS SDK buttons (gold, EUR, capture) render inside the existing
+   review modal, labelled **PAYPAL SANDBOX**.
+4. **Capture & verify server-side** — `POST /api/orders/[reference]/capture` captures with
+   a stable `PayPal-Request-Id` (`capture-<reference>`) and strictly verifies: response
+   order id == approved id, status `COMPLETED`, capture id present, amount == computed
+   price, currency == EUR. The internal order becomes `captured` **only** after this
+   verification; the review modal and timeline then show the verified result.
+5. **Idempotency** — captured / cancelled / failed are terminal; repeated capture requests
+   replay the recorded result (`duplicate: true`), and duplicate success callbacks cannot
+   create double purchases. A cancel/failed checkout must produce a *new* order to retry.
+
+Routes (all `runtime = "nodejs"`, JSON-schema-validated bodies, in-memory per-IP rate limits):
+
+| Route | Purpose |
+|---|---|
+| `GET /api/paypal/config` | Public availability state + sandbox clientId (never the secret). |
+| `POST /api/orders` | Authoritative order creation (recomputes the price server-side). |
+| `GET /api/orders` | Order vault data (public projections only). |
+| `POST /api/orders/[reference]/capture` | Server-side capture + strict verification. |
+| `POST /api/orders/[reference]/cancel` | Marks a checkout cancelled (stays unpaid, terminal). |
+
+## What Phase 4 MVP does NOT do (honest scope)
+
+- It purchases **one buyer's individual share** of one simulated offer. There is **no
+  escrow, no split payment, no pooled group settlement** — PayPal never pays several
+  sellers and nothing is "settled for the group".
+- Seller quotes remain simulated. A successful Sandbox capture is a payment *simulation*
+  against PayPal test accounts — **not** a commitment by any real vendor to ship goods.
+- Order state is the smallest safe solution: a git-ignored `data/orders.json` file
+  (atomic temp+rename writes). It survives local reloads/restarts of the demo machine
+  but is **not** deployed persistence; deployments start with an empty vault.
+- Rate limiting is in-memory per process (fixed window). Fronting proxies, multi-instance
+  deployments, etc. would need a real store — out of demo scope.
+- Un-approved PayPal orders are not voided via API on cancel (Orders v2 has no buyer-side
+  void for CAPTURE intent); they simply expire in PayPal, and the internal record is
+  already terminal `cancelled`.
 
 ## AI configuration (optional)
 
@@ -103,9 +173,13 @@ src/ai/               ← Phase 3 AI layer (server-only adapter + validation)
 src/state/reducer.ts  ← pure market reducer (validation → state → recalculated engine output)
 src/state/store.tsx   ← React context wiring around the reducer
 src/app/api/ai/…      ← POST /api/ai/extract + /api/ai/explain (nodejs runtime) routes
+src/paypal/…          ← Phase 4: server-only PayPal adapter, order store, validation, rate limit
+src/app/api/paypal/…  ← Phase 4: config / orders / capture / cancel routes (nodejs runtime)
+src/app/orders/       ← /orders order-vault page (traceable checkout history)
+src/components/market/CheckoutPanel.tsx ← the Sandbox checkout surface in the review modal
 src/data/demo.ts      ← typed synthetic seed (20 buyers, 5 seed communities, events)
 src/components/…      ← UI: network, inspector, group sheet, activity stream, NL panel
-tests/                ← engine.test.ts (29) + phase3.test.ts (37)
+tests/                ← engine.test.ts (29) + phase3.test.ts (37) + phase4.test.ts (38)
 ```
 
 **Data flow:** every buyer add/withdraw/reset runs
@@ -284,7 +358,8 @@ are simulated strategy profiles, not real merchants. No quote commits funds.
 
 ## Current limitations (intentional)
 
-- No backend/persistence — a reload resets the session (by design).
+- Session market state is in-memory (a reload resets buyers/groups — by design); the
+  Phase 4 **order vault** persists separately in local `data/orders.json` (see limitations above).
 - Token matching is a deterministic vocabulary-overlap heuristic; no embeddings.
 - Seller inventories are fictional strategy profiles; "reliability" is config, not telemetry.
   **Every seller offer is simulated** — no real vendor, inventory, commitment or payment exists.
@@ -322,9 +397,63 @@ are simulated strategy profiles, not real merchants. No quote commits funds.
 
 ## Future phases
 
-- **Phase 4** — PayPal-backed purchasing: approval flows, payments, order records.
+- Real marketplace operations: multiple-offer checkout, split payments / group settlement
+  with escrow (explicitly out of MVP scope), real seller onboarding, webhooks instead of
+  client-triggered capture, durable order persistence for deployed environments.
 
 ---
 
 *Built for a PayPal AI hackathon demonstrator. No AI API keys or payment secrets are
-included or required.*
+included or required. All payment functionality uses PayPal Sandbox test accounts.*
+
+## Manual Sandbox checkout — exact steps
+
+1. `cp .env.example .env` and fill `PAYPAL_CLIENT_ID` + `PAYPAL_CLIENT_SECRET` from a
+   Sandbox REST app; leave `PAYPAL_ENVIRONMENT=sandbox`.
+2. `npm install && npm run dev` → open http://localhost:3000/market.
+3. Pick any offer in the Offer ledger → *Review offer*.
+4. In **PayPal Sandbox checkout**, choose your buyer share (radio list with the computed
+   per-buyer price) → *Buy my share — €… (EUR)*.
+5. The PayPal popup opens against **test buyer credentials** (developer.paypal.com →
+   Sandbox accounts, e.g. a `...@personal.example.com` user). Approve the payment.
+6. The modal shows **Verified capture ✓** with the internal order reference and the last
+   8 digits of the capture id — produced only after the server verified the capture.
+   The timeline gains a genuine `PAID` event; the offer ledger shows `PAID · sandbox …`.
+7. `/orders` (Order vault) lists the attempt with status "PAID — capture verified
+   server-side"; re-open the review modal → the same result replays as "already
+   processed" rather than paying twice.
+8. To see the honest failure states: cancel in the PayPal popup (`checkout cancelled`,
+   order stays unpaid) or withdraw PayPal config and restart (checkout panel explains
+   that no payment can be faked).
+
+## Demo video checklist (under 3 minutes)
+
+- [ ] **0:00–0:20 Problem** — fragmented buys, sellers can't see compatible demand; show the
+      landing line "The Market That Forms Around You".
+- [ ] **0:20–0:50 Create demand** — `/create`, type a natural-language request, show the
+      filled form + trust badge (AI or FALLBACK · RULES), submit → timeline logs the join.
+- [ ] **0:50–1:20 The market forms** — `/market`: pool, category clusters, group formation
+      rationale; open a group sheet → explainable engine decision.
+- [ ] **1:20–1:50 Compare offers** — offer ledger ranks (price/speed/grade), open review →
+      engine facts and per-buyer fit list.
+- [ ] **1:50–2:35 PayPal Sandbox** — pick buyer share → *Buy my share* → approve with a
+      Sandbox test account → **Verified capture ✓** → switch to `/orders` showing the
+      recorded capture; mention rate limits + idempotent replays.
+- [ ] **2:35–2:55 Impact & honesty** — what the MVP is (demand formation + verified Sandbox
+      payments for an individual share) and what it is not (no escrow, no group settlement,
+      simulated sellers). End on the order vault.
+- [ ] Fresh browser profile for recording; Sandbox creds in `.env` (never shown on camera);
+      pre-verify a captured order exists so step 5 is smooth; record at 1080p.
+
+ ## Manual QA checklist (Phase 4 additions)
+
+11. Review modal → *Buy my share* → cancel in the popup → modal shows "checkout cancelled
+    — nothing was captured"; timeline shows `CANCEL` (never a success chip).
+12. Complete a capture → re-open the same offer's review → checkout replays "Order already
+    processed"; the ledger row shows `PAID · sandbox …8-digit`.
+13. Stop the PayPal config (`PAYPAL_CLIENT_ID` empty) → checkout panel explicitly says the
+    gateway is not configured; no button fakes a payment.
+14. `/orders` renders pending orders as "PENDING" and captures as "PAID — capture verified
+    server-side" with the last-8 capture id.
+15. Rapid-click *Buy my share* → single pending order (no duplicate submissions); >10
+    creations inside a minute get throttled with a friendly 429 message.

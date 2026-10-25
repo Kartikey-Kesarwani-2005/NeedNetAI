@@ -267,7 +267,7 @@ export function resolveCheckoutOffer(
   if (typeof body.groupId !== "string" || !/^[a-z0-9]{3,12}$/.test(body.groupId)) {
     return { ok: false, error: "invalid request body", status: 400 };
   }
-  if (typeof body.offerId !== "string" || !/^[a-z0-9-]{3,24}$/i.test(body.offerId)) {
+  if (typeof body.offerId !== "string" || !/^[a-z0-9_-]{3,24}$/i.test(body.offerId)) {
     return { ok: false, error: "invalid request body", status: 400 };
   }
   if (typeof body.buyerId !== "string" || !/^b\d{2,4}$/.test(body.buyerId)) {
