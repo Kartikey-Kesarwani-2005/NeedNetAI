@@ -6,6 +6,8 @@ NeedNet AI organizes scattered customer demand into compatible groups so that co
 seller strategies respond with ranked, explainable offers — and every buyer approves their
 own purchase through a genuine **PayPal Sandbox** checkout that is verified server-side.
 
+> **Live demo:** *(deploy karne ke baad URL yahan paste karo — see [DEPLOY.md](DEPLOY.md))*
+
 - **Phase 1 — Living Demand Network:** the constellation-style interface for buyers, groups and quotes.
 - **Phase 2 — Intelligence Engine:** a real deterministic matching engine that computes
   groups, group intelligence, simulated offers and rankings from buyer records.
@@ -69,6 +71,7 @@ cp .env.example .env   # then edit .env — never commit it
 | `PAYPAL_CLIENT_ID` | *(empty)* | Sandbox REST app client id. Public by design — the JS-SDK script URL needs it. Empty ⇒ checkout shows an informative *not configured* state; no payment can occur or be faked. |
 | `PAYPAL_CLIENT_SECRET` | *(empty)* | Sandbox app secret. Read **only** inside `src/paypal/` and the order routes (`runtime = "nodejs"`). Never bundled client-side, never logged, never returned by any API. |
 | `PAYPAL_ENVIRONMENT` | `sandbox` | `sandbox` (default) or `live`. The browser-facing gate refuses anything but `sandbox` — live credentials never drive the demo UI. |
+| `ORDER_STORE_DIR` | *(unset)* | Writable dir for the order vault. Serverless hosts (read-only project dir) fall back to a per-process temp dir automatically — checkout still works; see `DEPLOY.md` honest notes. |
 
 You also need a **Sandbox personal (buyer) test account** (auto-created by PayPal under
 *Testing Tools → Sandbox accounts*) with its password — this is the "test buyer" used at

@@ -16,7 +16,8 @@
  *   failed         → terminal (retry creates a NEW internal order)
  */
 import { randomUUID } from "node:crypto";
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 export type OrderStatus = "created" | "captured" | "cancelled" | "failed";
@@ -47,13 +48,46 @@ interface StoreFile {
 
 let dataDir: string | null = null;
 
-/** Tests point this at a temp dir; production uses <project>/data. */
+/** Cached after the first writability probe; tests point this at a temp dir. */
+let resolvedDir: string | null = null;
+
+/** Tests point this at a temp dir; production uses <project>/data (or ORDER_STORE_DIR). */
 export function setOrderDataDir(dir: string | null): void {
   dataDir = dir;
+  // Tests must not inherit a previously resolved serverless fallback.
+  resolvedDir = dir;
+}
+
+/**
+ * Resolve a directory the process can actually write to.
+ * Serverless hosts (Vercel/Netlify lambdas) mount the project read-only, so the
+ * first successful attempt is probed once and cached: explicit test dir →
+ * ORDER_STORE_DIR → ./data → os.tmpdir()/neednet-orders. Honest degradation:
+ * the vault still records, it just may not survive redeploys there.
+ */
+function resolveStoreDir(): string {
+  if (resolvedDir) return resolvedDir;
+  const preferred =
+    dataDir ??
+    (process.env.ORDER_STORE_DIR?.trim()
+      ? path.resolve(process.env.ORDER_STORE_DIR.trim())
+      : path.join(process.cwd(), "data"));
+  try {
+    mkdirSync(preferred, { recursive: true });
+    const probe = path.join(preferred, `.neednet-probe-${process.pid}`);
+    writeFileSync(probe, "ok", "utf8");
+    unlinkSync(probe);
+    resolvedDir = preferred;
+  } catch {
+    const fallback = path.join(os.tmpdir(), "neednet-orders");
+    mkdirSync(fallback, { recursive: true });
+    resolvedDir = fallback;
+  }
+  return resolvedDir;
 }
 
 function ordersPath(): string {
-  return path.join(dataDir ?? path.join(process.cwd(), "data"), "orders.json");
+  return path.join(resolveStoreDir(), "orders.json");
 }
 
 /** Serialize writes; Next dev can interleave, JS runs these on one loop. */
