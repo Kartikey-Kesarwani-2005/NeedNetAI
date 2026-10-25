@@ -6,7 +6,7 @@ import { buildGroupFacts } from "@/ai/facts";
 import type { ExplanationResponse, GroupFacts } from "@/ai/types";
 import { deterministicExplanation, type ValidatedExplanation } from "@/ai/validate";
 import { useMarket } from "@/state/store";
-import { AvailabilityChip, CompatibilityChip, EnginePickChip, QualityChip, RankChip, TrustChip } from "./chips";
+import { AvailabilityChip, CompatibilityChip, EnginePickChip, PurchasedChip, QualityChip, RankChip, TrustChip } from "./chips";
 
 interface GroupSheetProps {
   groupId: string;
@@ -156,6 +156,7 @@ export function GroupSheet({ groupId, onClose }: GroupSheetProps) {
                 </p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   {o.recommended ? <EnginePickChip score={o.score} /> : <span className="tick border border-ink-600 px-1.5 py-0.5 text-fog-400">runner-up</span>}
+                  <PurchasedChip offerId={o.id} />
                   <RankChip label="price" rank={o.priceRank} />
                   <RankChip label="speed" rank={o.speedRank} />
                   <QualityChip quality={o.quality} />

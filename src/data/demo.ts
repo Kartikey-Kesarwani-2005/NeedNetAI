@@ -115,7 +115,11 @@ export interface MarketEvent {
     | "nl_interpreted"
     | "clarification_requested"
     | "buyer_updated"
-    | "priority_changed";
+    | "priority_changed"
+    // ── Phase 4: real checkout outcomes (server-verified, all genuine) ──
+    | "order_captured"
+    | "checkout_cancelled"
+    | "checkout_failed";
   text: string;
 }
 

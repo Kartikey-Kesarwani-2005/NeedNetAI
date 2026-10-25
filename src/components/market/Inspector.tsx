@@ -6,7 +6,7 @@ import type { ComputedGroup } from "@/engine/engine";
 import type { SimulatedOffer } from "@/engine/offers";
 import type { DemandFieldErrors } from "@/engine/normalize";
 import { useMarket, type BuyerUpdatePatch, type UpdateBuyerResult } from "@/state/store";
-import { CompatibilityChip, QualityChip, TrustChip } from "./chips";
+import { CompatibilityChip, PurchasedChip, QualityChip, TrustChip } from "./chips";
 
 /**
  * Contextual inspector — reflects the currently selected network entity.
@@ -400,6 +400,7 @@ function OfferSummary({ offer }: { offer: SimulatedOffer | null }) {
     <div className="mt-4">
       <h3 className="font-display text-xl font-bold leading-snug tracking-tight text-fog-100">{offer.title}</h3>
       <div className="mt-2 flex flex-wrap gap-2">
+        <PurchasedChip offerId={offer.id} />
         <span className="tick border border-cyan-400/50 px-1.5 py-0.5 text-cyan-400">{offer.strategyLabel} strategy</span>
         <QualityChip quality={offer.quality} />
         {offer.recommended && (

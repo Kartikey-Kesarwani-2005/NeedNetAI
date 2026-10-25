@@ -8,6 +8,7 @@ import { Wordmark } from "./ui/atoms";
 const LINKS = [
   { href: "/market", label: "Market explorer" },
   { href: "/create", label: "Create demand" },
+  { href: "/orders", label: "Order vault" },
 ];
 
 export function TopNav() {

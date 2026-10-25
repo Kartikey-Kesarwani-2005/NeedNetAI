@@ -1,6 +1,7 @@
 "use client";
 
 import { AVAILABILITY_LABEL, QUALITY_LABEL, type Compatibility, type Quality } from "@/data/demo";
+import { useMarket } from "@/state/store";
 import type { SimulatedOffer } from "@/engine/offers";
 
 type Availability = SimulatedOffer["availability"];
@@ -25,6 +26,25 @@ export function AvailabilityChip({ availability }: { availability: Availability 
     made_to_order: "text-cyan-400",
   };
   return <span className={`tick ${cls[availability]}`}>{AVAILABILITY_LABEL[availability]}</span>;
+}
+
+/**
+ * Verified-capture chip — the ONLY "paid" state in the product, always
+ * driven by the server-verified capture stored in reducer state (never by
+ * browser-side approval callbacks).
+ */
+export function PurchasedChip({ offerId }: { offerId: string }) {
+  const { state } = useMarket();
+  const purchase = state.purchases[offerId];
+  if (purchase?.status !== "captured") return null;
+  return (
+    <span
+      className="tick border border-sage-400/60 bg-sage-400/10 px-1.5 py-0.5 text-sage-400"
+      title={`Sandbox order ${purchase.reference} captured and verified server-side`}
+    >
+      PAID · sandbox …{(purchase.captureId ?? "xxxx").slice(-8)}
+    </span>
+  );
 }
 
 /** Marks from the deterministic offer ranking. */

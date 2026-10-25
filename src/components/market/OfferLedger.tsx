@@ -4,12 +4,15 @@ import { useEffect, useRef } from "react";
 import { CATEGORY_BY_ID, QUALITY_LABEL, formatMoney, type Buyer } from "@/data/demo";
 import { useMarket } from "@/state/store";
 import type { SimulatedOffer } from "@/engine/offers";
-import { EnginePickChip, QualityChip, RankChip } from "./chips";
+import type { PurchaseRecord } from "@/state/reducer";
+import { EnginePickChip, PurchasedChip, QualityChip, RankChip } from "./chips";
+import { CheckoutPanel } from "./CheckoutPanel";
 
 /**
  * Editorial offer ledger — a comparison layout over the engine's ranked
  * simulated quotes for the current filter/group, not a generic table.
- * All quotes are synthetic. Phase 1-2: review is read-only, no checkout.
+ * All quotes are synthetic. Phase 4: review opens the real PayPal Sandbox
+ * checkout surface.
  */
 export function OfferLedger({ onReview }: { onReview: (offerId: string) => void }) {
   const { state } = useMarket();
@@ -102,17 +105,22 @@ function OfferRow({
           <RankChip label="price" rank={offer.priceRank} />
           <RankChip label="speed" rank={offer.speedRank} />
         </div>
-        <button
-          type="button"
-          onClick={() => onReview(offer.id)}
-          className="tick border border-ink-600 px-3 py-1.5 text-fog-300 transition-colors hover:border-fog-100 hover:text-fog-100"
-        >
-          Review offer
-        </button>
+        <div className="flex items-center gap-2">
+          <PurchasedChip offerId={offer.id} />
+          <button
+            type="button"
+            onClick={() => onReview(offer.id)}
+            className="tick border border-ink-600 px-3 py-1.5 text-fog-300 transition-colors hover:border-fog-100 hover:text-fog-100"
+          >
+            Review offer
+          </button>
+        </div>
       </div>
     </li>
   );
 }
+
+/** Verified-capture chip lives in ./chips — single source shared with the inspector. */
 
 function Fact({ k, v }: { k: string; v: string }) {
   return (
@@ -125,11 +133,12 @@ function Fact({ k, v }: { k: string; v: string }) {
 
 /**
  * Full offer review — opened from the ledger or the inspector.
- * Phase 1/2 is read-only: no checkout, no simulated payment.
+ * Phase 4: read-only review + the real PayPal SANDBOX checkout surface.
  */
 export function OfferReviewModal({ offer, onClose }: { offer: SimulatedOffer; onClose: () => void }) {
   const { state } = useMarket();
   const closeRef = useRef<HTMLButtonElement>(null);
+  const purchase: PurchaseRecord = state.purchases[offer.id];
 
   useEffect(() => {
     closeRef.current?.focus();
@@ -223,9 +232,19 @@ export function OfferReviewModal({ offer, onClose }: { offer: SimulatedOffer; on
           )}
 
           <p className="mt-6 border border-amber-400/30 bg-amber-400/5 p-3 font-mono text-[10px] leading-relaxed text-amber-400">
-            DEMO PHASE · This quote is simulated by the matching engine. Buyer review does not commit funds —
-            purchasing and payments arrive in a later phase.
+            DEMO PHASE · This quote is simulated by the matching engine. A PayPal <b>Sandbox</b> checkout below is a payment
+            simulation against test accounts — never a real vendor, escrow or group settlement. The MVP buys one buyer&apos;s
+            individual share.
           </p>
+
+          {purchase?.status === "captured" && (
+            <p className="mt-2 border border-[#84B899]/50 bg-[#84B899]/5 p-3 font-mono text-[10px] leading-relaxed text-[#84B899]">
+              ● PURCHASED (SANDBOX) · order {purchase.reference} · buyer {state.buyers.find((b) => b.id === purchase.buyerId)?.label ?? purchase.buyerId} ·{" "}
+              {formatMoney(Number(purchase.amount))} verified capture …{purchase.captureId?.slice(-8)}
+            </p>
+          )}
+
+          <CheckoutPanel offer={offer} group={group ?? null} />
         </div>
       </div>
     </div>

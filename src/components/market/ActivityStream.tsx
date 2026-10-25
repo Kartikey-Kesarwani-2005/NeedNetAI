@@ -15,6 +15,10 @@ const KIND_LABEL: Record<string, string> = {
   clarification_requested: "ASKED",
   buyer_updated: "UPDATED",
   priority_changed: "FOCUS",
+  // ── Phase 4: real checkout outcomes ──
+  order_captured: "PAID",
+  checkout_cancelled: "CANCEL",
+  checkout_failed: "FAILED",
 };
 
 const KIND_COLOR: Record<string, string> = {
@@ -30,6 +34,10 @@ const KIND_COLOR: Record<string, string> = {
   clarification_requested: "#E0A43C",
   buyer_updated: "#E9EDF4",
   priority_changed: "#B49BFF",
+  // ── Phase 4: real checkout outcomes ──
+  order_captured: "#84B899",
+  checkout_cancelled: "#E0A43C",
+  checkout_failed: "#E0A43C",
 };
 
 /** Chronological market activity — newest first. */

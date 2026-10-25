@@ -14,6 +14,24 @@ import {
 import { computeMarket, type MarketComputed } from "@/engine/engine";
 import type { DemandFieldErrors } from "@/engine/normalize";
 
+/** A verified (or aborted) Phase 4 sandbox checkout, keyed by offer id. */
+export interface PurchaseRecord {
+  reference: string;
+  offerId: string;
+  groupId: string;
+  buyerId: string;
+  /** Only set on the `captured` variant */
+  captureId: string | null;
+  paypalOrderId: string | null;
+  amount: string; // "34.00"
+  currency: "EUR";
+  status: "captured" | "cancelled" | "failed";
+  /** ISO timestamp from the server */
+  at: string;
+}
+
+export type PurchaseByOffer = Record<string, PurchaseRecord>;
+
 /** Monotonic counter contract: async callers snapshot this and compare on arrival. */
 export function isStaleResponse(snapshotToken: number, lastChange: MarketState["lastChange"]): boolean {
   return lastChange != null && lastChange.token > snapshotToken;
@@ -45,6 +63,8 @@ export interface MarketState {
    *  so the network and components can highlight the ACTUAL recent change
    *  and stale async results can be detected. */
   lastChange: { buyerId: string; token: number; summary: string } | null;
+  /** Phase 4: server-verified sandbox payments, keyed by offer id. */
+  purchases: PurchaseByOffer;
 }
 
 /** Structured demand as submitted by the create form (post-AI-parse). */
@@ -99,7 +119,11 @@ export type Action =
   | { type: "addBuyer"; buyer: Buyer; nl?: { interpretedBy: "ai" | "fallback"; clarificationCount: number } }
   | { type: "updateBuyer"; buyerId: string; patch: Partial<Buyer> }
   | { type: "removeBuyer"; buyerId: string }
-  | { type: "reset" };
+  | { type: "reset" }
+  /** Phase 4: a server-VERIFIED capture became a paid sandbox order. */
+  | { type: "orderCaptured"; purchase: Omit<PurchaseRecord, "status" | "captureId" | "at"> & { captureId: string; at: string } }
+  /** Phase 4: checkout ended without capture (cancelled at PayPal / failed). */
+  | { type: "orderAborted"; purchase: Omit<PurchaseRecord, "status" | "captureId"> & { status: "cancelled" | "failed" } };
 
 export function initialState(epochMinute: number): MarketState {
   const buyers = BUYERS.map((b) => ({ ...b }));
@@ -112,6 +136,7 @@ export function initialState(epochMinute: number): MarketState {
     filter: "all",
     epochMinute,
     lastChange: null,
+    purchases: {},
   };
 }
 
@@ -287,6 +312,54 @@ export function reducer(state: MarketState, action: Action): MarketState {
     }
     case "reset":
       return initialState(state.epochMinute);
+    case "orderCaptured": {
+      // Idempotency at the reducer level: the same capture replayed (duplicate
+      // callback, retried response) must never duplicate the success event.
+      const dedupeId = `order-${action.purchase.reference}`;
+      if (state.events.some((e) => e.id === dedupeId)) return state;
+      const offer = state.computed.offers.find((o) => o.id === action.purchase.offerId);
+      const buyer = state.buyers.find((b) => b.id === action.purchase.buyerId);
+      const events = [...state.events];
+      events.push(
+        makeEvent(
+          events,
+          dedupeId,
+          "order_captured",
+          `${buyer?.label ?? action.purchase.buyerId}'s €${action.purchase.amount} PayPal SANDBOX payment for ${offer?.title ?? action.purchase.offerId} was captured and verified server-side (capture ${action.purchase.captureId.slice(-8)}) — recorded on the offer`,
+        ),
+      );
+      return {
+        ...state,
+        events,
+        purchases: {
+          ...state.purchases,
+          [action.purchase.offerId]: { ...action.purchase, status: "captured" },
+        },
+      };
+    }
+    case "orderAborted": {
+      // Genuine outcome, NEVER a success event: cancelled/failed only.
+      const dedupeId = `checkout-${action.purchase.status}-${action.purchase.reference}`;
+      if (state.events.some((e) => e.id === dedupeId)) return state;
+      const offer = state.computed.offers.find((o) => o.id === action.purchase.offerId);
+      const kind = action.purchase.status === "cancelled" ? "checkout_cancelled" : "checkout_failed";
+      const verb = action.purchase.status === "cancelled" ? "cancelled at PayPal" : "failed during capture";
+      const events = [...state.events];
+      events.push(
+        makeEvent(
+          events,
+          dedupeId,
+          kind,
+          `${action.purchase.reference} was ${verb} for ${offer?.title ?? action.purchase.offerId} — the order stays unpaid and no purchase was recorded`,
+        ),
+      );
+      return {
+        ...state,
+        events,
+        // Cancelled/failed checkouts leave no purchase trace on the offer —
+        // no offer is marked purchased, no success event is ever created.
+      };
+    }
     default:
       return state;
   }

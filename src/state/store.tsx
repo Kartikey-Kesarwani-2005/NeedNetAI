@@ -14,12 +14,17 @@ import { normalizeDemand } from "@/engine/normalize";
 import {
   initialState,
   reducer,
+  type Action,
   type BuyerUpdatePatch,
   type MarketState,
   type NewBuyerInput,
   type Selection,
   type UpdateBuyerResult,
 } from "./reducer";
+
+/** Phase 4 dispatch payloads (from the pure reducer action union). */
+export type CapturedInput = Extract<Action, { type: "orderCaptured" }>["purchase"];
+export type AbortedInput = Extract<Action, { type: "orderAborted" }>["purchase"];
 
 /* ── Types (re-exported from the pure reducer module) ──── */
 
@@ -37,6 +42,10 @@ interface MarketContextValue {
   updateBuyer: (buyerId: string, patch: BuyerUpdatePatch) => UpdateBuyerResult;
   withdraw: (buyerId: string) => void;
   reset: () => void;
+  /** Phase 4: record a server-verified sandbox capture (idempotent events). */
+  orderCaptured: (purchase: CapturedInput) => void;
+  /** Phase 4: record an aborted checkout (cancelled / failed, never success). */
+  orderAborted: (purchase: AbortedInput) => void;
 }
 
 const MarketContext = createContext<MarketContextValue | null>(null);
@@ -50,6 +59,8 @@ export function MarketProvider({ children }: { children: ReactNode }) {
   const setFilter = useCallback((filter: MarketState["filter"]) => dispatch({ type: "setFilter", filter }), []);
   const withdraw = useCallback((buyerId: string) => dispatch({ type: "removeBuyer", buyerId }), []);
   const reset = useCallback(() => dispatch({ type: "reset" }), []);
+  const orderCaptured = useCallback((purchase: CapturedInput) => dispatch({ type: "orderCaptured", purchase }), []);
+  const orderAborted = useCallback((purchase: AbortedInput) => dispatch({ type: "orderAborted", purchase }), []);
 
   const addBuyer = useCallback(
     (input: NewBuyerInput) => {
@@ -107,8 +118,8 @@ export function MarketProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo<MarketContextValue>(
-    () => ({ state, select, focusGroup, setFilter, addBuyer, updateBuyer, withdraw, reset }),
-    [state, select, focusGroup, setFilter, addBuyer, updateBuyer, withdraw, reset],
+    () => ({ state, select, focusGroup, setFilter, addBuyer, updateBuyer, withdraw, reset, orderCaptured, orderAborted }),
+    [state, select, focusGroup, setFilter, addBuyer, updateBuyer, withdraw, reset, orderCaptured, orderAborted],
   );
 
   return <MarketContext.Provider value={value}>{children}</MarketContext.Provider>;
