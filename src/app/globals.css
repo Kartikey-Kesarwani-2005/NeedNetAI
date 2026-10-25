@@ -29,6 +29,9 @@
   --color-cyan-400: #5cc8dc;
   --color-amber-400: #e0a43c;
   --color-sage-400: #84b899;
+  /* AI/lilac: the app's AI accents (timeline "AI PARSE / AGENTS", agent UI) */
+  --color-lilac-300: #b49bff;
+  --color-lilac-400: #a085f2;
 
   --font-display: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
   --font-body: var(--font-inter), ui-sans-serif, system-ui, sans-serif;

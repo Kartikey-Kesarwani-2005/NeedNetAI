@@ -19,6 +19,7 @@ const KIND_LABEL: Record<string, string> = {
   order_captured: "PAID",
   checkout_cancelled: "CANCEL",
   checkout_failed: "FAILED",
+  agent_proposed: "AGENTS",
 };
 
 const KIND_COLOR: Record<string, string> = {
@@ -38,6 +39,7 @@ const KIND_COLOR: Record<string, string> = {
   order_captured: "#84B899",
   checkout_cancelled: "#E0A43C",
   checkout_failed: "#E0A43C",
+  agent_proposed: "#B49BFF",
 };
 
 /** Chronological market activity — newest first. */

@@ -123,7 +123,9 @@ export type Action =
   /** Phase 4: a server-VERIFIED capture became a paid sandbox order. */
   | { type: "orderCaptured"; purchase: Omit<PurchaseRecord, "status" | "captureId" | "at"> & { captureId: string; at: string } }
   /** Phase 4: checkout ended without capture (cancelled at PayPal / failed). */
-  | { type: "orderAborted"; purchase: Omit<PurchaseRecord, "status" | "captureId"> & { status: "cancelled" | "failed" } };
+  | { type: "orderAborted"; purchase: Omit<PurchaseRecord, "status" | "captureId"> & { status: "cancelled" | "failed" } }
+  /** Phase 4 agentic checkout: the AI agent made a real (validated) proposal. */
+  | { type: "agentProposed"; runId: string; buyerId: string; buyerLabel: string; offerId: string; offerTitle: string; approach: string };
 
 export function initialState(epochMinute: number): MarketState {
   const buyers = BUYERS.map((b) => ({ ...b }));
@@ -359,6 +361,22 @@ export function reducer(state: MarketState, action: Action): MarketState {
         // Cancelled/failed checkouts leave no purchase trace on the offer —
         // no offer is marked purchased, no success event is ever created.
       };
+    }
+    case "agentProposed": {
+      // Dedupe by runId (unique per server run) — replays never double-log.
+      const dedupeId = `agent-${action.runId}`;
+      if (state.events.some((e) => e.id === dedupeId)) return state;
+      const agentKind = action.approach === "ai" ? "AI agent" : "deterministic engine agent";
+      const events = [...state.events];
+      events.push(
+        makeEvent(
+          events,
+          dedupeId,
+          "agent_proposed",
+          `${agentKind} proposed ${action.offerTitle} for ${action.buyerLabel} — the human still approves the payment in PayPal Sandbox`,
+        ),
+      );
+      return { ...state, events };
     }
     default:
       return state;

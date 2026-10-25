@@ -24,6 +24,48 @@ export interface AiProvider {
   readonly model: string;
   extractDemand(text: string): Promise<ExtractedDemand & { originalText: string; modelClarifications?: Clarification[] } | null>;
   explainGroup(facts: GroupFacts): Promise<{ summary: string; tradeoffs: string[]; evidenceOfferIds: string[] } | null>;
+  /**
+   * Phase 4 agentic checkout: the model acts as a purchasing agent — it picks
+   * ONE offer id from the candidates the engine itself computed. The caller
+   * must re-validate the chosen id against the same candidate list.
+   */
+  chooseOffer?(input: AgentDecisionContext): Promise<AgentDecision | null>;
+}
+
+/** Real computed data the agent sees (no invented numbers possible). */
+export interface AgentDecisionContext {
+  buyer: {
+    id: string;
+    label: string;
+    categoryId: string;
+    need: string;
+    budgetMin: number;
+    budgetMax: number;
+    quantity: number;
+    quality: string;
+    deadlineDays: number;
+    priority?: string;
+  };
+  candidates: Array<{
+    offerId: string;
+    sellerName: string;
+    strategyLabel: string;
+    unitPrice: number;
+    buyerCost: number; // per-buyer share at their requested quantity
+    lotTotal: number;
+    quality: string;
+    deliveryDays: number;
+    score: number;
+    priceRank: number;
+    speedRank: number;
+  }>;
+}
+
+/** Model output BEFORE validation — offerId must be re-checked server-side. */
+export interface AgentDecision {
+  offerId: string;
+  headline: string;
+  reasoning: string;
 }
 
 const DEFAULT_BASE_URL = "https://api.openai.com/v1";
@@ -49,9 +91,17 @@ export function readAiConfig(env: NodeJS.ProcessEnv = process.env): AiConfig | n
 }
 
 export function getAiProvider(env: NodeJS.ProcessEnv = process.env): AiProvider | null {
+  if (injectedProvider) return injectedProvider;
   const config = readAiConfig(env);
   if (!config) return null;
   return createHttpProvider(config);
+}
+
+let injectedProvider: AiProvider | null = null;
+
+/** Tests may swap in a plain-object provider; production uses HTTP. */
+export function setAiProviderForTests(provider: AiProvider | null): void {
+  injectedProvider = provider;
 }
 
 function createHttpProvider(config: AiConfig): AiProvider {
@@ -116,6 +166,21 @@ function createHttpProvider(config: AiConfig): AiProvider {
       if (!json) return null;
       return coerceModelExplanation(json);
     },
+
+    async chooseOffer(input) {
+      const content = await callModel(AGENT_SYSTEM, buildAgentUser(input));
+      if (!content) return null;
+      const json = parseJsonObject(content);
+      if (!json) return null;
+      // Raw pass-through — the ROUTE re-validates offerId against computed
+      // candidates and the reasoning against invented-money injection.
+      const raw = json as Record<string, unknown>;
+      return {
+        offerId: typeof raw.offerId === "string" ? raw.offerId : "",
+        headline: typeof raw.headline === "string" ? raw.headline : "",
+        reasoning: typeof raw.reasoning === "string" ? raw.reasoning : "",
+      };
+    },
   };
 }
 
@@ -157,6 +222,21 @@ function buildExplainUser(facts: GroupFacts): string {
   return `Engine facts (source of truth):\n${JSON.stringify({ ...facts, offers: facts.offers.map(({ facts: f, ...rest }) => ({ ...rest, facts: f })) }).slice(0, 12_000)}`;
 }
 
+const AGENT_SYSTEM = `You are an AI purchasing agent inside a demand-formation marketplace.
+You receive the buyer's profile and the engine's OWN computed candidate offers (authoritative numbers).
+Your job: pick the ONE offer id that best fits THIS buyer, then explain the choice.
+Rules:
+- Choose ONLY from the provided candidate offerIds. Returning anything else is a violation.
+- Ground every claim in the provided numbers/fields. NEVER invent prices, savings, inventory, guarantees or delivery outcomes.
+- Respect the buyer's hard limits (budget ceiling, quality target, deadline); if none fits, pick the best-fitting one anyway — the UI shows true per-buyer fit.
+- All offers are simulated strategy quotes; say what the numbers show, not what a real vendor would do.
+Return STRICT JSON only:
+{ "offerId": string (from candidates), "headline": string (<=120 chars), "reasoning": string (<=400 chars, may reference only provided fields) }`;
+
+function buildAgentUser(input: AgentDecisionContext): string {
+  const buyer = { ...input.buyer, need: input.buyer.need.slice(0, 280) };
+  return `Buyer profile:\n${JSON.stringify(buyer)}\n\nCandidate offers (engine-computed, authoritative):\n${JSON.stringify(input.candidates).slice(0, 8_000)}`;
+}
 /* ── Response coercion (never trust model output) ──────── */
 
 export function coerceModelExtraction(json: Record<string, unknown>, originalText: string): ExtractedDemand & { originalText: string; modelClarifications?: Clarification[] } | null {

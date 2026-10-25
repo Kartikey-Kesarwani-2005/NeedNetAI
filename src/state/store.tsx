@@ -46,6 +46,18 @@ interface MarketContextValue {
   orderCaptured: (purchase: CapturedInput) => void;
   /** Phase 4: record an aborted checkout (cancelled / failed, never success). */
   orderAborted: (purchase: AbortedInput) => void;
+  /** Phase 4 agentic checkout: record a real validated agent proposal. */
+  agentProposed: (event: AgentProposalInput) => void;
+}
+
+export interface AgentProposalInput {
+  runId: string;
+  buyerId: string;
+  buyerLabel: string;
+  offerId: string;
+  offerTitle: string;
+  /** "ai" or "engine" — recorded honestly in the timeline */
+  approach: string;
 }
 
 const MarketContext = createContext<MarketContextValue | null>(null);
@@ -61,6 +73,7 @@ export function MarketProvider({ children }: { children: ReactNode }) {
   const reset = useCallback(() => dispatch({ type: "reset" }), []);
   const orderCaptured = useCallback((purchase: CapturedInput) => dispatch({ type: "orderCaptured", purchase }), []);
   const orderAborted = useCallback((purchase: AbortedInput) => dispatch({ type: "orderAborted", purchase }), []);
+  const agentProposed = useCallback((event: AgentProposalInput) => dispatch({ type: "agentProposed", ...event }), []);
 
   const addBuyer = useCallback(
     (input: NewBuyerInput) => {
@@ -117,9 +130,9 @@ export function MarketProvider({ children }: { children: ReactNode }) {
     [state.buyers],
   );
 
-  const value = useMemo<MarketContextValue>(
-    () => ({ state, select, focusGroup, setFilter, addBuyer, updateBuyer, withdraw, reset, orderCaptured, orderAborted }),
-    [state, select, focusGroup, setFilter, addBuyer, updateBuyer, withdraw, reset, orderCaptured, orderAborted],
+const value = useMemo<MarketContextValue>(
+    () => ({ state, select, focusGroup, setFilter, addBuyer, updateBuyer, withdraw, reset, orderCaptured, orderAborted, agentProposed }),
+    [state, select, focusGroup, setFilter, addBuyer, updateBuyer, withdraw, reset, orderCaptured, orderAborted, agentProposed],
   );
 
   return <MarketContext.Provider value={value}>{children}</MarketContext.Provider>;

@@ -5,7 +5,9 @@ import { CATEGORY_BY_ID, QUALITY_LABEL, formatMoney } from "@/data/demo";
 import { buildGroupFacts } from "@/ai/facts";
 import type { ExplanationResponse, GroupFacts } from "@/ai/types";
 import { deterministicExplanation, type ValidatedExplanation } from "@/ai/validate";
+import type { ComputedGroup } from "@/engine/engine";
 import { useMarket } from "@/state/store";
+import type { AgentAdviceResponse } from "@/app/api/agent/purchase/route";
 import { AvailabilityChip, CompatibilityChip, EnginePickChip, PurchasedChip, QualityChip, RankChip, TrustChip } from "./chips";
 
 interface GroupSheetProps {
@@ -82,6 +84,8 @@ export function GroupSheet({ groupId, onClose, onReviewOffer }: GroupSheetProps)
       </Block>
 
       <ExplainDecisionBlock groupId={g.id} />
+
+      <AgentAdviceBlock group={g} onCloseSheet={onClose} onReviewOffer={onReviewOffer} />
 
       <Block title={`Anonymized members (${m.memberCount})`}>
         <ul className="space-y-3">
@@ -303,7 +307,7 @@ function ExplainDecisionBlock({ groupId }: { groupId: string }) {
           type="button"
           onClick={askAi}
           disabled={aiState === "loading"}
-          className="tick border border-violet-400/50 px-3 py-1.5 text-violet-300 transition-colors hover:bg-violet-400/10 disabled:opacity-50"
+          className="tick border border-lilac-400/50 px-3 py-1.5 text-lilac-300 transition-colors hover:bg-lilac-400/10 disabled:opacity-50"
         >
           {aiState === "loading" ? "Asking AI…" : "Narrate with AI (optional)"}
         </button>
@@ -330,7 +334,7 @@ function ExplainDecisionBlock({ groupId }: { groupId: string }) {
       )}
 
       {narrative && (
-        <div className="rise-in mt-3 border border-violet-400/40 p-3">
+        <div className="rise-in mt-3 border border-lilac-400/40 p-3">
           <div className="flex items-center gap-2">
             <TrustChip origin="ai" />
             <span className="tick text-fog-500">AI narrative over engine facts — validated against every id and amount</span>
@@ -340,7 +344,7 @@ function ExplainDecisionBlock({ groupId }: { groupId: string }) {
             <ul className="mt-2 space-y-1">
               {narrative.tradeoffs.map((t) => (
                 <li key={t} className="flex gap-2 text-[13px] leading-snug text-fog-300">
-                  <span className="mt-1.5 h-1 w-1 shrink-0 bg-violet-400" aria-hidden />
+                  <span className="mt-1.5 h-1 w-1 shrink-0 bg-lilac-400" aria-hidden />
                   {t}
                 </li>
               ))}
@@ -364,8 +368,142 @@ function ExplainDecisionBlock({ groupId }: { groupId: string }) {
   );
 }
 
-function MetricRow({ k, v, note }: { k: string; v: string; note?: string }) {
+/**
+ * Agentic checkout block (Phase 4): an AI purchasing agent that CHOOSES from
+ * the engine's own computed candidates — it can never price, never invent,
+ * and never pay. The human approves in the PayPal popup; the server verifies
+ * the capture. Without AI credentials, the deterministic engine makes the
+ * pick and the response is truthfully labelled.
+ */
+function AgentAdviceBlock({
+  group,
+  onCloseSheet,
+  onReviewOffer,
+}: {
+  group: ComputedGroup;
+  onCloseSheet: () => void;
+  onReviewOffer?: (offerId: string) => void;
+}) {
+  const { state, agentProposed } = useMarket();
+  const [actingBuyerId, setActingBuyerId] = useState<string>(group.members[0]?.id ?? "");
+  const [state_, setState_] = useState<"idle" | "running" | "done" | "error">("idle");
+  const [advice, setAdvice] = useState<AgentAdviceResponse | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Reset when the group (or its member list) changes behind the sheet.
+  useEffect(() => {
+    setState_("idle");
+    setAdvice(null);
+    setErrorMsg(null);
+    setActingBuyerId(group.members[0]?.id ?? "");
+  }, [group.id, group.members.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const run = async () => {
+    if (actingBuyerId === "") return;
+    setState_("running");
+    setErrorMsg(null);
+    setAdvice(null);
+    try {
+      const res = await fetch("/api/agent/purchase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ buyerId: actingBuyerId, buyers: state.buyers }),
+      });
+      const payload = (await res.json()) as AgentAdviceResponse;
+      if (!res.ok || !payload.offer) {
+        setState_("error");
+        setErrorMsg(payload.error ?? "the agent could not run — check the server logs");
+        return;
+      }
+      setAdvice(payload);
+      setState_("done");
+      const actor = group.members.find((mm) => mm.id === payload.buyer.buyerId);
+      agentProposed({
+        runId: payload.runId,
+        buyerId: payload.buyer.buyerId,
+        buyerLabel: actor?.label ?? payload.buyer.buyerId,
+        offerId: payload.offer.offerId,
+        offerTitle: `${payload.offer.offerId} · ${payload.offer.sellerName}`,
+        approach: payload.source,
+      });
+    } catch {
+      setState_("error");
+      setErrorMsg("network error while running the agent — nothing was proposed");
+    }
+  };
+
+  const chosenCost = advice ? group.members.find((mm) => mm.id === advice.buyer.buyerId) : undefined;
+
   return (
+    <Block title="AI purchasing agent">
+      <p className="mb-3 font-mono text-[10px] leading-relaxed text-fog-500">
+        AGENT MODE · the agent may only CHOOSE among the engine&apos;s computed offers — it cannot price, invent or pay.
+        The human approves in the PayPal Sandbox popup; the server verifies the capture.
+      </p>
+      <div className="mb-3 grid gap-1.5">
+        {group.members.map((mm) => (
+          <label
+            key={mm.id}
+            className={`flex cursor-pointer items-center gap-2.5 border border-ink-600 px-2.5 py-1.5 transition-colors ${
+              actingBuyerId === mm.id ? "border-lilac-300 text-fog-100" : "text-fog-400"
+            }`}
+          >
+            <input
+              type="radio"
+              name="agent-buyer"
+              value={mm.id}
+              checked={actingBuyerId === mm.id}
+              onChange={() => setActingBuyerId(mm.id)}
+              className="accent-lilac-300"
+            />
+            <span className="font-mono text-xs">{mm.label}</span>
+            <span className="font-mono text-[10px] text-fog-500">×{mm.quantity} · {mm.deadlineDays}d</span>
+          </label>
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={() => void run()}
+        disabled={actingBuyerId === "" || state_ === "running"}
+        className="tick w-full border border-lilac-300/50 bg-lilac-300/10 px-3 py-2 text-lilac-300 transition-colors hover:bg-lilac-300/20 disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        {state_ === "running" ? "Agent deciding…" : "✦ Run the purchasing agent"}
+      </button>
+
+      {state_ === "error" && <p className="mt-2 font-mono text-[11px] text-amber-400">△ {errorMsg}</p>}
+
+      {state_ === "done" && advice && (
+        <div className="mt-3 border border-lilac-300/40 bg-lilac-300/5 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="tick border border-lilac-300/50 px-1.5 py-0.5 text-lilac-300">
+              {advice.source === "ai" ? "AI AGENT CHOICE" : "ENGINE AGENT (no AI on server)"}
+            </span>
+            <span className="font-mono text-[10px] text-fog-500">run {advice.runId}</span>
+          </div>
+          <p className="mt-2 font-display text-base font-semibold leading-snug text-fog-100">{advice.headline}</p>
+          <p className="mt-1.5 font-mono text-[11px] leading-relaxed text-fog-300">{advice.reasoning}</p>
+          <p className="mt-2 font-mono text-[10px] text-fog-500">
+            for {chosenCost?.label ?? advice.buyer.buyerId} · server-computed share {formatMoney(Number(advice.amount))} EUR —
+            the browser cannot change this price
+          </p>
+          {advice.message && <p className="mt-1.5 font-mono text-[10px] leading-relaxed text-amber-400">△ {advice.message}</p>}
+          <button
+            type="button"
+            onClick={() => {
+              onCloseSheet();
+              onReviewOffer?.(advice.offer.offerId);
+            }}
+            className="tick mt-3 w-full border border-coral-500/60 bg-coral-500/10 px-3 py-2 text-coral-300 transition-colors hover:bg-coral-500/20 hover:text-coral-200"
+          >
+            Review & pay this proposal →
+          </button>
+        </div>
+      )}
+    </Block>
+  );
+}
+
+function MetricRow({ k, v, note }: { k: string; v: string; note?: string }) {  return (
     <div className="px-3 py-2.5">
       <div className="flex items-baseline justify-between gap-4">
         <dt className="tick text-fog-500">{k}</dt>

@@ -16,6 +16,10 @@ own purchase through a genuine **PayPal Sandbox** checkout that is verified serv
 - **Phase 4 — Real PayPal Sandbox checkout:** eligible offers open a genuine Sandbox
   payment flow (JS SDK approval → server-side capture with strict verification → verified
   order result), an order vault for traceability, and a rate-limited, idempotent API.
+- **Phase 4 agentic checkout — the AI purchasing agent:** the agent (AI when available,
+  deterministic engine otherwise) CHOOSES one offer from the engine's own computed
+  candidates — it can never price, invent, or pay. The human approves in the PayPal popup
+  and the server verifies the capture: a real human-in-the-loop agentic commerce loop.
 
 ---
 
@@ -117,6 +121,27 @@ Routes (all `runtime = "nodejs"`, JSON-schema-validated bodies, in-memory per-IP
 - Un-approved PayPal orders are not voided via API on cancel (Orders v2 has no buyer-side
   void for CAPTURE intent); they simply expire in PayPal, and the internal record is
   already terminal `cancelled`.
+
+## AI purchasing agent (agentic commerce, human-in-the-loop)
+
+`POST /api/agent/purchase` runs a constrained purchasing agent inside a demand group:
+
+1. **The engine owns the numbers.** The server re-validates the session buyer records,
+   reruns `computeMarket`, and builds the agent's candidate list from the group's OWN
+   eligible offers — hardcoded candidates (hard filters): the buyer's share respected the
+   ceiling and the delivery respects the deadline.
+2. **The agent only chooses.** With AI configured, the model picks ONE `offerId` + headline
+   + reasoning from the candidates. Validation is deterministic: an unknown offer id, too
+   short text, or any **invented currency amount** rejects the answer entirely.
+3. **Honest fallback.** Without AI credentials (or on a rejected answer) the deterministic
+   engine pick runs and the response says `source: "engine"` with an explanatory message —
+   the timeline records `AGENTS` events with which agent (AI vs engine) decided.
+4. **The human still pays.** The proposal hands off to the existing review modal →
+   PayPal Sandbox buttons → human approval → server-verified capture. The agent can
+   propose; only the person can pay.
+
+This is a *deployable-shaped* agentic-commerce demo: AI decides what to buy, PayPal moves
+the sandbox money, and the human is the final authority on payment.
 
 ## AI configuration (optional)
 

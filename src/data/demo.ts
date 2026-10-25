@@ -119,7 +119,9 @@ export interface MarketEvent {
     // ── Phase 4: real checkout outcomes (server-verified, all genuine) ──
     | "order_captured"
     | "checkout_cancelled"
-    | "checkout_failed";
+    | "checkout_failed"
+    // ── Phase 4 agentic checkout: the AI agent's actual proposals ──
+    | "agent_proposed";
   text: string;
 }
 
