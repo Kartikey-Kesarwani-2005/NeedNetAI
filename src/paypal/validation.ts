@@ -58,6 +58,7 @@ export function validateBuyerRecord(entry: unknown): Buyer | null {
   });
   if (!result.ok) return null;
 
+  const PRIORITIES = new Set(["price", "speed", "quality", "balanced"]);
   const buyer: Buyer = {
     id: candidate.id,
     label: typeof candidate.label === "string" && candidate.label.length <= 12 ? candidate.label : candidate.id,
@@ -71,7 +72,9 @@ export function validateBuyerRecord(entry: unknown): Buyer | null {
     location: result.demand.location,
     preferences: result.demand.preferences,
     constraints: result.demand.constraints,
-    priority: typeof candidate.priority === "string" ? (candidate.priority as Buyer["priority"]) : undefined,
+    priority: typeof candidate.priority === "string" && PRIORITIES.has(candidate.priority)
+      ? (candidate.priority as Buyer["priority"])
+      : undefined,
     origin: typeof candidate.origin === "object" && candidate.origin != null
       ? (candidate.origin as Buyer["origin"])
       : undefined,

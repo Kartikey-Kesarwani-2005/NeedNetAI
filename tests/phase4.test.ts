@@ -227,6 +227,11 @@ describe("buyer record validation", () => {
     expect(validateBuyerRecord({ ...BUYERS[0], budgetMax: -5 })).toBeNull();
     expect(validateBuyerRecord(null)).toBeNull();
   });
+
+  it("keeps only the four known priority focuses, ignoring injected junk", () => {
+    expect(validateBuyerRecord({ ...BUYERS[0], priority: "price" })?.priority).toBe("price");
+    expect(validateBuyerRecord({ ...BUYERS[0], priority: "invent-a-weight" as Buyer["priority"] })?.priority).toBeUndefined();
+  });
 });
 
 /* ── 4.4 Order store lifecycle ─────────────────────────── */

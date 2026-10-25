@@ -14,7 +14,7 @@ const PROCESS = [
   { n: "01", title: "Individual needs", text: "Buyers state what they actually need — budget, quantity, quality, deadline." },
   { n: "02", title: "Demand groups", text: "The engine organizes overlapping needs into compatible groups." },
   { n: "03", title: "Competing offers", text: "Invited sellers quote the whole group — price, quality and delivery compete." },
-  { n: "04", title: "Buyer-approved purchases", text: "Each buyer approves their own purchase; eligible buys complete via PayPal." },
+  { n: "04", title: "Buyer-approved purchases", text: "Each buyer approves their own share; eligible buys complete via server-verified PayPal Sandbox checkout." },
 ];
 
 export default function LandingPage() {
@@ -26,7 +26,7 @@ export default function LandingPage() {
         {/* ── Hero ─────────────────────────────────────── */}
         <section className="grid items-center gap-10 pb-16 pt-28 lg:grid-cols-[minmax(0,1fr)_520px] lg:gap-6 lg:pt-32">
           <div className="relative z-10 lg:-mr-24">
-            <p className="tick text-coral-500">NEEDNET AI — PHASE 2 DEMONSTRATOR</p>
+            <p className="tick text-coral-500">NEEDNET AI — PHASE 4 DEMONSTRATOR</p>
             <h1 className="mt-4 font-display text-[clamp(2.6rem,7vw,5.2rem)] font-bold leading-[0.98] tracking-tight text-fog-100">
               Don&apos;t just search
               <br />
@@ -97,7 +97,7 @@ export default function LandingPage() {
               </li>
             ))}
           </ol>
-          <p className="mt-3 font-mono text-[10px] text-fog-500">Step 04 involves payments and is not part of this Phase 1 demo.</p>
+          <p className="mt-3 font-mono text-[10px] text-fog-500">Step 04 runs on PayPal Sandbox test accounts — server-verified simulated payments, never a real vendor.</p>
         </section>
 
         {/* ── Editorial statement ──────────────────────── */}
@@ -141,7 +141,7 @@ export default function LandingPage() {
 
         <footer className="flex flex-wrap items-center justify-between gap-4 border-t border-ink-700 py-8">
           <span className="font-display text-sm font-bold text-fog-100">neednet<span className="text-coral-500">*</span></span>
-          <span className="tick text-fog-500">PHASE 2 · SYNTHETIC DEMO DATA ONLY · NO LIVE MARKET, NO PAYMENTS</span>
+          <span className="tick text-fog-500">PHASE 4 · SYNTHETIC DEMO DATA · PAYPAL SANDBOX TEST ACCOUNTS · NO LIVE MARKET, NO REAL VENDOR</span>
         </footer>
       </main>
     </div>

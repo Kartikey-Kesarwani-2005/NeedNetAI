@@ -317,6 +317,10 @@ export function CheckoutPanel({ offer, group }: { offer: SimulatedOffer; group: 
 
   const selectedCost = costFor(offer, state.buyers.find((b) => b.id === buying));
   const order = stepOrder(checkout);
+  // Duplicate-purchase guard: this buyer's share on THIS offer already has a
+  // server-verified capture → no second checkout for the same buyer+quote.
+  const existingPurchase = state.purchases[offer.id];
+  const buyerAlreadyPaid = existingPurchase?.status === "captured" && existingPurchase.buyerId === buying;
 
   return (
     <Panel title="PayPal Sandbox checkout">
@@ -325,7 +329,7 @@ export function CheckoutPanel({ offer, group }: { offer: SimulatedOffer; group: 
         SANDBOX · simulated seller quote · the server itself computes this buyer&apos;s share — the browser cannot set the price
       </p>
 
-      {checkout.step === "form" && (
+      {checkout.step === "form" && !buyerAlreadyPaid && (
         <>
           <div className="mt-3 grid gap-2">
             {group?.members.map((b) => {
@@ -367,6 +371,14 @@ export function CheckoutPanel({ offer, group }: { offer: SimulatedOffer; group: 
           </button>
           {checkout.error && <p className="mt-2 font-mono text-[11px] text-amber-400">△ {checkout.error}</p>}
         </>
+      )}
+
+      {checkout.step === "form" && buyerAlreadyPaid && (
+        <p className="mt-3 border border-sage-400/50 bg-sage-400/5 p-3 font-mono text-[11px] leading-relaxed text-sage-400">
+          <span className="font-display font-bold">{"✓ This buyer's share is already paid."}</span> Verified sandbox
+          capture …{(existingPurchase?.captureId ?? "xxxx").slice(-8)} on order {existingPurchase?.reference}. Choosing a
+          different buyer starts their own checkout.
+        </p>
       )}
 
       {checkout.step === "creating" && (

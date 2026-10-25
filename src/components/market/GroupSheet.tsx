@@ -11,6 +11,8 @@ import { AvailabilityChip, CompatibilityChip, EnginePickChip, PurchasedChip, Qua
 interface GroupSheetProps {
   groupId: string;
   onClose: () => void;
+  /** Opens the full offer review modal (Phase 4 checkout surface). */
+  onReviewOffer?: (offerId: string) => void;
 }
 
 /**
@@ -18,7 +20,7 @@ interface GroupSheetProps {
  * Every number and reason comes from the matching engine's computed
  * group record and generated simulated offers.
  */
-export function GroupSheet({ groupId, onClose }: GroupSheetProps) {
+export function GroupSheet({ groupId, onClose, onReviewOffer }: GroupSheetProps) {
   const { state, select, withdraw } = useMarket();
   const closeRef = useRef<HTMLButtonElement>(null);
 
@@ -173,6 +175,7 @@ export function GroupSheet({ groupId, onClose }: GroupSheetProps) {
                   onClick={() => {
                     onClose();
                     select({ kind: "offer", id: o.id });
+                    onReviewOffer?.(o.id);
                   }}
                 >
                   Review offer →

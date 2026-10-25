@@ -94,7 +94,13 @@ export default function MarketPage() {
         </p>
       </main>
 
-      {sheetGroupId && <GroupSheet groupId={sheetGroupId} onClose={() => setSheetGroupId(null)} />}
+      {sheetGroupId && (
+        <GroupSheet
+          groupId={sheetGroupId}
+          onClose={() => setSheetGroupId(null)}
+          onReviewOffer={(offerId) => setReviewOfferId(offerId)}
+        />
+      )}
       {reviewOffer && <OfferReviewModal offer={reviewOffer} onClose={() => setReviewOfferId(null)} />}
     </div>
   );
