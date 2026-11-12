@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: neednet-ai
+    runtime: node
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    envVars:
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_ENVIRONMENT
+        value: sandbox
+        sync: false
+      - key: AUTH_SIGNING_SECRET
+        sync: false
+      - key: ORDER_SIGNING_SECRET
+        sync: false
+      - key: PAYPAL_WEBHOOK_ID
+        sync: false
+      - key: AI_API_KEY
+        sync: false

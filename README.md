@@ -1,4 +1,4 @@
-# NeedNet AI — Phase 4: Real Sandbox Checkout
+# NeedNet AI
 
 **The Market That Forms Around You — a demand-formation marketplace, demonstrated on synthetic data.**
 
@@ -6,7 +6,7 @@ NeedNet AI organizes scattered customer demand into compatible groups so that co
 seller strategies respond with ranked, explainable offers — and every buyer approves their
 own purchase through a genuine **PayPal Sandbox** checkout that is verified server-side.
 
-> **Live demo:** *(deploy karne ke baad URL yahan paste karo — see [DEPLOY.md](DEPLOY.md))*
+> **Live demo:** *(add the deployed URL here once published — see [DEPLOY.md](DEPLOY.md))*
 
 - **Phase 1 — Living Demand Network:** the constellation-style interface for buyers, groups and quotes.
 - **Phase 2 — Intelligence Engine:** a real deterministic matching engine that computes
@@ -17,11 +17,17 @@ own purchase through a genuine **PayPal Sandbox** checkout that is verified serv
   and timeline recalculate around every change.
 - **Phase 4 — Real PayPal Sandbox checkout:** eligible offers open a genuine Sandbox
   payment flow (JS SDK approval → server-side capture with strict verification → verified
-  order result), an order vault for traceability, and a rate-limited, idempotent API.
+  order result), an order vault with verified-volume analytics, signature-verified webhook
+  reconciliation, and a rate-limited, idempotent API.
 - **Phase 4 agentic checkout — the AI purchasing agent:** the agent (AI when available,
   deterministic engine otherwise) CHOOSES one offer from the engine's own computed
   candidates — it can never price, invent, or pay. The human approves in the PayPal popup
   and the server verifies the capture: a real human-in-the-loop agentic commerce loop.
+- **PayPilot AI — private payment workspace (`/paypilot`):** per-account natural-language
+  payment intelligence, verified spending and planning-budget insights, engine-grounded
+  purchase planning, an agent activity audit trail, and a **prepare → type-code → PayPal
+  Sandbox approval → verified capture** flow. The AI classifies intent only; it cannot
+  approve, capture, set a budget, or change a transaction by itself.
 
 ---
 
@@ -52,7 +58,7 @@ Verification commands:
 ```bash
 npm run typecheck  # strict TypeScript, no emit
 npm run lint       # eslint (next/core-web-vitals + typescript)
-npm run test       # vitest suite (117 tests: engine + Phase 3 + Phase 4 payments)
+npm run test       # vitest suite (177 tests: engine + Phase 3 + Phase 4 + agent + PayPilot)
 npm run build      # production build
 npm run start      # serve the production build
 ```
@@ -71,7 +77,12 @@ cp .env.example .env   # then edit .env — never commit it
 | `PAYPAL_CLIENT_ID` | *(empty)* | Sandbox REST app client id. Public by design — the JS-SDK script URL needs it. Empty ⇒ checkout shows an informative *not configured* state; no payment can occur or be faked. |
 | `PAYPAL_CLIENT_SECRET` | *(empty)* | Sandbox app secret. Read **only** inside `src/paypal/` and the order routes (`runtime = "nodejs"`). Never bundled client-side, never logged, never returned by any API. |
 | `PAYPAL_ENVIRONMENT` | `sandbox` | `sandbox` (default) or `live`. The browser-facing gate refuses anything but `sandbox` — live credentials never drive the demo UI. |
+| `ORDER_SIGNING_SECRET` | *(falls back to secret)* | Dedicated HMAC key for stateless order tokens. Unset ⇒ signed with `PAYPAL_CLIENT_SECRET`; set a long random value in production. |
+| `AUTH_SIGNING_SECRET` | *(falls back)* | HMAC key for HttpOnly PayPilot session cookies. Required to use `/paypilot`; when unset, falls back to `ORDER_SIGNING_SECRET` / `PAYPAL_CLIENT_SECRET`. Set a dedicated random value in production. |
+| `USER_STORE_DIR` / `PAYPILOT_STORE_DIR` | *(unset)* | Writable dirs for `users.json` (password hashes) and `paypilot.json` (budgets, intents, activity). Default `./data/`, temp fallback. Local demo persistence, **not** a deployed database. |
+| `PAYPAL_WEBHOOK_ID` | *(unset)* | Webhook id from the PayPal dashboard. Enables `POST /api/paypal/webhook`; unset ⇒ that route answers 503 and accepts nothing unverified. |
 | `ORDER_STORE_DIR` | *(unset)* | Writable dir for the order vault. Serverless hosts (read-only project dir) fall back to a per-process temp dir automatically — checkout still works; see `DEPLOY.md` honest notes. |
+| `PAYPAL_INVOICE_RECIPIENT_EMAIL` | *(empty)* | Sandbox address billed by the agent's MCP invoice (`POST /api/agent/invoice`). Empty ⇒ labelled `recipient_not_configured` (503); the route never invents an address. Requires the **Invoicing** API permission on the Sandbox app (Developer Dashboard → Apps & Credentials). |
 
 You also need a **Sandbox personal (buyer) test account** (auto-created by PayPal under
 *Testing Tools → Sandbox accounts*) with its password — this is the "test buyer" used at
@@ -87,27 +98,48 @@ by the server's deterministic engine re-run; no client-submitted total is ever t
    records (each re-validated via the engine's own `normalizeDemand` path). The server
    re-runs `computeMarket` and derives the buyer's share (`offer.perBuyerCost[buyerId]`)
    itself; creates the PayPal order (`POST /v2/checkout/orders`, intent CAPTURE,
-   `custom_id` = internal reference) and stores a pending `data/orders.json` record.
+   `custom_id` = internal reference), stores a pending `data/orders.json` record
+   (best-effort history) and returns an **HMAC-SHA256 signed order token**
+   (`ORDER_SIGNING_SECRET`, falling back to `PAYPAL_CLIENT_SECRET`) carrying
+   reference, paypalOrderId, buyerId, offerId, amount and currency.
 3. **Approve** — PayPal JS SDK buttons (gold, EUR, capture) render inside the existing
    review modal, labelled **PAYPAL SANDBOX**.
-4. **Capture & verify server-side** — `POST /api/orders/[reference]/capture` captures with
-   a stable `PayPal-Request-Id` (`capture-<reference>`) and strictly verifies: response
-   order id == approved id, status `COMPLETED`, capture id present, amount == computed
-   price, currency == EUR. The internal order becomes `captured` **only** after this
-   verification; the review modal and timeline then show the verified result.
-5. **Idempotency** — captured / cancelled / failed are terminal; repeated capture requests
-   replay the recorded result (`duplicate: true`), and duplicate success callbacks cannot
-   create double purchases. A cancel/failed checkout must produce a *new* order to retry.
+4. **Capture & verify server-side** — `POST /api/orders/[reference]/capture` first
+   verifies the signed token's signature and that it matches the posted reference and
+   PayPal order id — the token *is* the order, so capture stays correct even though
+   lambdas do not share a filesystem (the creating lambda's `orders.json` is usually
+   invisible here). It then captures with a stable `PayPal-Request-Id`
+   (`capture-<reference>`) and strictly verifies: response order id == approved id,
+   status `COMPLETED`, capture id present, amount == computed price, currency == EUR.
+   The order becomes `captured` **only** after this verification; the review modal and
+   timeline then show the verified result.
+   **Already-captured retries** (`ORDER_ALREADY_CAPTURED`) are not treated as failures:
+   the route reads the order back through PayPal Orders v2 GET and marks it paid only if
+   that read-back shows a `COMPLETED` capture matching the signed amount/currency. If the
+   read-back itself is unreachable, the order stays retryable rather than showing a false
+   failure for money that may have moved.
+5. **Idempotency & webhooks** — captured / cancelled / failed are terminal when local
+   history is visible; repeated capture requests replay the recorded result
+   (`duplicate: true`), and duplicate success callbacks cannot create double purchases.
+   Without local history the same `PayPal-Request-Id` keeps retries idempotent upstream.
+   An optional `POST /api/paypal/webhook` reconciles async PayPal events as an
+   out-of-band safety net: every request is checked with PayPal's
+   `verify-webhook-signature` API first, amount/currency must match the server-created
+   order, and terminal orders never mutate. A cancel/failed checkout must produce a
+   *new* order to retry.
 
 Routes (all `runtime = "nodejs"`, JSON-schema-validated bodies, in-memory per-IP rate limits):
 
 | Route | Purpose |
 |---|---|
 | `GET /api/paypal/config` | Public availability state + sandbox clientId (never the secret). |
-| `POST /api/orders` | Authoritative order creation (recomputes the price server-side). |
+| `POST /api/orders` | Authoritative order creation (recomputes the price server-side) + signed order token. |
 | `GET /api/orders` | Order vault data (public projections only). |
-| `POST /api/orders/[reference]/capture` | Server-side capture + strict verification. |
+| `POST /api/orders/[reference]/capture` | Server-side capture + strict verification against the signed token. |
 | `POST /api/orders/[reference]/cancel` | Marks a checkout cancelled (stays unpaid, terminal). |
+| `POST /api/paypal/webhook` | Signature-verified PayPal events (capture completed/denied) reconciled idempotently into the local vault. |
+| `GET /api/health` | Secret-free liveness/config probe (`checks.paypal`, `checks.ai` booleans only). |
+| `POST /api/agent/invoice` | Post-capture: raises a **draft** invoice for the order's seller via PayPal's remote MCP `create_invoice` tool (labelled failures, never faked). |
 
 ## What Phase 4 MVP does NOT do (honest scope)
 
@@ -116,14 +148,26 @@ Routes (all `runtime = "nodejs"`, JSON-schema-validated bodies, in-memory per-IP
   sellers and nothing is "settled for the group".
 - Seller quotes remain simulated. A successful Sandbox capture is a payment *simulation*
   against PayPal test accounts — **not** a commitment by any real vendor to ship goods.
-- Order state is the smallest safe solution: a git-ignored `data/orders.json` file
-  (atomic temp+rename writes). It survives local reloads/restarts of the demo machine
-  but is **not** deployed persistence; deployments start with an empty vault.
+- Order history is the smallest safe solution: a git-ignored `data/orders.json` file
+  (atomic temp+rename writes), used as **best-effort audit history only** — capture
+  itself is stateless and trusts the HMAC-signed order token, so it works across
+  lambdas that share no filesystem. The file survives local reloads/restarts of the
+  demo machine but is **not** deployed persistence; deployments start with an empty vault.
 - Rate limiting is in-memory per process (fixed window). Fronting proxies, multi-instance
   deployments, etc. would need a real store — out of demo scope.
+- Webhooks are verified but reconcile only the local vault that this instance can see. On
+  a stateless deployment the capture route's signed-token read-back remains the primary
+  proof; an event for an order created on another lambda is acknowledged without inventing
+  a record. Webhook delivery also needs a public URL, so it is optional in local dev.
 - Un-approved PayPal orders are not voided via API on cancel (Orders v2 has no buyer-side
   void for CAPTURE intent); they simply expire in PayPal, and the internal record is
   already terminal `cancelled`.
+- The legacy `/orders` page remains a shared, unauthenticated demo ledger: it shows only
+  non-secret public projections and, for anonymous visitors, **only unowned legacy demo
+  orders** — never a PayPilot account's history. PayPilot's `/api/paypilot/*` and its
+  authenticated `/api/orders` view are scoped to the signed-in account. This is
+  single-deployment demo auth, not enterprise identity or a shared "demo account" that
+  implies real isolation.
 
 ## AI purchasing agent (agentic commerce, human-in-the-loop)
 
@@ -145,6 +189,98 @@ Routes (all `runtime = "nodejs"`, JSON-schema-validated bodies, in-memory per-IP
 
 This is a *deployable-shaped* agentic-commerce demo: AI decides what to buy, PayPal moves
 the sandbox money, and the human is the final authority on payment.
+
+### Post-purchase invoicing over MCP (`POST /api/agent/invoice`)
+
+The seller-side counterpart runs **after** a verified capture: the server asks PayPal's
+remote MCP server (`https://mcp.sandbox.paypal.com`, HTTP/SSE transport, authenticated
+with the same sandbox client credentials) to call its `create_invoice` tool for the seller
+of that order, and answers with the invoice id + link.
+
+1. **Proof of capture first.** The tool is only called when `data/orders.json` shows the
+   order `captured` with a capture id — or, on a stateless deployment with no local
+   record, when the HMAC-signed order token + captureId are re-verified against PayPal's
+   Orders v2 GET. A client's claim alone never triggers an invoice.
+2. **Server-derived numbers only.** Amount, currency, reference and capture id come from
+   that verified record; the recipient is `PAYPAL_INVOICE_RECIPIENT_EMAIL` (unset ⇒
+   labelled `recipient_not_configured`, never a guessed address).
+3. **Draft, never sent.** Only `create_invoice` is called — `send_invoice` is not, so no
+   email leaves PayPal. A per-process replay cache returns the *same* invoice on a retry
+   (`replayed: true`) instead of raising a second one.
+4. **Every failure is labelled**, never faked: `mcp_unreachable` / `mcp_auth` /
+   `mcp_protocol` (502), `mcp_tool_error` (422 — e.g. the Sandbox app lacks the Invoicing
+   API permission, which PayPal reports as HTTP 403), `mcp_bad_response` (502),
+   `capture_unverified` (409), `recipient_not_configured` / `mcp_not_configured` (503).
+   The response body always carries `error` + `code` + `mcp: { endpoint, tool, transport }`.
+
+## PayPilot AI — private payment workspace (`/paypilot`)
+
+`/paypilot` is the account-scoped agentic-commerce surface: ask in plain language, review
+verified spending and a planning budget, build an engine-grounded purchase plan, then
+complete a confirmation-gated PayPal Sandbox payment. It is deliberately separate from the
+legacy shared `/orders` demo ledger.
+
+### Account and session model
+
+- **Register / sign in** at `/paypilot`. Passwords are 10–200 characters and stored only as
+  `scrypt` hashes with a per-account salt; the plaintext never appears in storage, logs or a
+  response.
+- Sessions are stateless HMAC-signed **HttpOnly, SameSite=Lax** cookies (7 days), signed with
+  `AUTH_SIGNING_SECRET` (falling back to `ORDER_SIGNING_SECRET` / `PAYPAL_CLIENT_SECRET`).
+  Every authenticated request re-reads the account record, so a deleted account stops working.
+- **The owner id always comes from the session**, never from the request body. `/api/paypilot/*`
+  is auth-gated; budgets, orders, payment intents and activity are read/written per user.
+- **Capture/cancel ownership:** account-owned orders require the matching signed-in owner;
+  unowned legacy demo orders keep their previous demo behaviour. Anonymous `/api/orders` GET
+  returns only unowned demo orders, never another account's financial history.
+- Local demo persistence only: accounts live in `data/users.json` and PayPilot data in
+  `data/paypilot.json` (both atomic writes, both git-ignored). See the honest limitations below.
+
+### What the workspace does
+
+1. **Grounded assistant** (`POST /api/paypilot/chat`). With AI configured, the model may only
+   **classify intent and extract literal parameters**. `coerceAiIntent` validates an allow-list;
+   malformed or unsupported output is rejected and the deterministic parser runs instead,
+   labelled `aiStatus: "error"`/`source: "deterministic"`. Replies are built from stored orders,
+   the saved budget and the deterministic planner — never from model-invented money.
+2. **Purchase planner** (`POST /api/paypilot/plan`). Re-validates buyer records, reruns
+   `computeMarket`, and surfaces only engine-produced candidates whose server-computed share
+   fits the buyer's ceiling and deadline. The response always says `requiresConfirmation: true`
+   and `autoPay: false`.
+3. **Planning budget** (`GET` / `PUT /api/paypilot/budget`). The assistant can only *propose* a
+   budget; a separate explicit `PUT` validates and saves it. Category sub-limits are checked
+   against the monthly limit. This is a planning limit — **not a bank balance**.
+4. **Transaction intelligence** (`GET /api/paypilot/insights`). Only `captured` orders (written
+   after a verified PayPal capture) count as spend. Pending orders are reported separately.
+   Category totals and recent rows are computed from the same stored records, with an explicit
+   disclosure that the remaining figure is not a bank balance.
+5. **Agent activity** (`GET /api/paypilot/activity`). A per-account audit trail of auth events,
+   validated intents, budget changes, plans, prepared/confirmed/denied payments and verified
+   captures. Public projections omit the internal owner id; the log is never a financial source
+   of truth.
+6. **Confirmation-gated payment.** `prepare` validates ids, recomputes the price, checks the
+   planning budget and duplicate guard, then stores a 10-minute intent with a six-character
+   code — **no PayPal call**. `confirm` requires the owner, the exact code and `confirmed: true`
+   before creating the PayPal order. The human then approves in the PayPal popup; the existing
+   capture route verifies the signed token, ownership, amount and currency before anything is
+   marked paid. The assistant never receives the code and has no capture path.
+
+| Route | Purpose |
+|---|---|
+| `POST /api/auth/register` / `login` / `logout`, `GET /api/auth/session` | Account lifecycle, scrypt password verification and HttpOnly session cookie. |
+| `POST /api/paypilot/chat` | Grounded assistant; model output classifies intent only. |
+| `GET /api/paypilot/insights` | Verified-capture totals, pending orders, category breakdown, planning-budget headroom. |
+| `GET` / `PUT /api/paypilot/budget` | Read or explicitly save the planning budget. |
+| `GET /api/paypilot/activity` | The account's agent audit timeline. |
+| `POST /api/paypilot/plan` | Engine-grounded purchase plan (never auto-pays). |
+| `POST /api/paypilot/payment/prepare` | Server-priced payment intent + confirmation code; no PayPal call. |
+| `POST /api/paypilot/payment/confirm` | Owner + exact code + `confirmed: true` → PayPal Sandbox order. |
+
+**PayPilot honest limits:** account/budget/intent/activity storage is local JSON, not a
+deployed durable database; there is no email verification, password reset, OAuth, MFA or
+account-deletion flow; rate limits are in-memory per process; and all sellers, demand and
+prices remain synthetic demo data. PayPal Sandbox test accounts are the only real payment
+rail.
 
 ## AI configuration (optional)
 
@@ -171,6 +307,9 @@ model response is coerced and validated before it can touch state.
 - **Next.js 15** (App Router) + **React 19**
 - **TypeScript** (strict)
 - **Tailwind CSS v4** with a custom design-token theme (`src/app/globals.css`)
+- **AG Grid** (`ag-grid-community` + `ag-grid-react`) — the `/orders` order vault renders as a
+  data grid: sortable columns, a funnel filter per column, a quick search across every field and
+  a custom dark theme assembled from the same `globals.css` palette tokens (no stock AG Grid colours)
 - Fonts: Space Grotesk, Inter, IBM Plex Mono via `next/font`
 - Purpose-built SVG + HTML network (no viz library), deterministic layout math
 - **Vitest** for the test suite
@@ -205,13 +344,22 @@ src/ai/               ← Phase 3 AI layer (server-only adapter + validation)
 src/state/reducer.ts  ← pure market reducer (validation → state → recalculated engine output)
 src/state/store.tsx   ← React context wiring around the reducer
 src/app/api/ai/…      ← POST /api/ai/extract + /api/ai/explain (nodejs runtime) routes
-src/paypal/…          ← Phase 4: server-only PayPal adapter, order store, validation, rate limit
-src/app/api/paypal/…  ← Phase 4: config / orders / capture / cancel routes (nodejs runtime)
-src/app/orders/       ← /orders order-vault page (traceable checkout history)
+src/auth/             ← PayPilot accounts: scrypt hashes, user store, HMAC HttpOnly sessions, route guard
+src/paypilot/         ← PayPilot server logic: intent validation, grounded chat, planner, budget, insights, confirmation-gated payments, activity
+src/app/api/auth/…    ← register / login / logout / session routes
+src/app/api/paypilot/…← auth-gated chat, insights, budget, activity, plan and payment prepare/confirm routes
+src/app/paypilot/     ← /paypilot account-gated workspace page
+src/components/paypilot/ ← PayPilot UI: auth gate, chat, planner, budget, insights, activity, payment dialog
+src/paypal/…          ← Phase 4: server-only PayPal adapter, order store, validation, rate limit, MCP client (mcp.ts)
+src/app/api/paypal/…  ← Phase 4: config + signature-verified webhook routes (nodejs runtime)
+src/app/api/orders/…  ← order creation, capture re-verification, cancel (nodejs runtime)
+src/app/api/health/…  ← secret-free liveness/config probe
+src/app/api/agent/…   ← agent purchase proposal + post-capture MCP invoice routes (nodejs runtime)
+src/app/orders/       ← /orders order-vault page: verified-volume analytics + AG Grid ledger (sort / filter / search)
 src/components/market/CheckoutPanel.tsx ← the Sandbox checkout surface in the review modal
 src/data/demo.ts      ← typed synthetic seed (20 buyers, 5 seed communities, events)
 src/components/…      ← UI: network, inspector, group sheet, activity stream, NL panel
-tests/                ← engine.test.ts (29) + phase3.test.ts (37) + phase4.test.ts (38)
+tests/                ← engine (29) + phase3 (37) + phase4 (44) + agent (12) + agentInvoice (18) + phase5 (11) + paypilot (26) = 177
 ```
 
 **Data flow:** every buyer add/withdraw/reset runs
@@ -314,7 +462,7 @@ out-of-range numbers and junk spec entries are quarantined; the original request
 
 The priority interpreter is fully deterministic (regex over EN/Hindi/Hinglish):
 
-- **Hard**: "Do not exceed ₹30,000" → budget cap; "must deliver within 7 days" → firm
+- **Hard**: "Do not exceed €30,000" → budget cap; "must deliver within 7 days" → firm
   deadline. Hard constraints live in the buyer's numeric fields and are **never relaxed**
   by ranking or AI.
 - **Soft**: "price matters most" / "delivery is urgent" / "quality matters more than speed"
@@ -374,7 +522,8 @@ Without `AI_API_KEY` (or if the model call fails/timeouts/returns junk):
 1. `POST /api/ai/extract` responds `source: "deterministic_fallback"`,
    `aiStatus: "unavailable" | "error"` and an explanatory message.
 2. The extraction itself comes from `extractDemandFallback` — a rule-based
-   EN/Hindi/Hinglish extractor (money with ₹/rs/rupaye/€ + k/hazar/lakh multipliers,
+   EN/Hindi/Hinglish extractor (amounts read as € from symbols or rs/rupaye/rupee
+   words + k/hazar/lakh multipliers,
    quantity words incl. Devanagari digits, category/zone/quality keywords, deadline cues
    incl. "overnight", spending-cap phrases) that shares the priority parser's rules.
 3. `/api/ai/explain` responds `{ ok: false, status: "unavailable" }` and the group sheet
@@ -403,6 +552,10 @@ are simulated strategy profiles, not real merchants. No quote commits funds.
   chat-completions structured output (no SDK), max 1,200 response tokens, 20 s timeout.
   Interpretation of Hindi/Hinglish in the fallback is keyword-based, not grammatical.
 - Timeline minute ticks are demo-relative (`t+mm′`), not wall-clock history.
+- PayPilot account and budget/intent stores are local JSON demo persistence, not a deployed
+  database. On an ephemeral host they can reset on redeploy/restart. There is no email
+  verification, password reset, OAuth, MFA or account-deletion flow; rate limits are
+  in-memory per process.
 - Lint covers `src` only; vitest's `configLoader: 'native'` warning about ESM-in-CJS is benign.
 
 ## Manual QA checklist
@@ -426,12 +579,21 @@ are simulated strategy profiles, not real merchants. No quote commits funds.
    stream logs `UPDATED` (+ `FOCUS`) and `ENGINE` events with fresh counts.
 10. Group sheet → *Explain decision (engine)* → deterministic summary/trade-offs labelled
     ENGINE; *Narrate with AI* without credentials → honest amber "AI unavailable" notice.
+11. `/paypilot` → register an account → the KPI strip shows €0 verified spend (not a guessed
+    balance), the activity log records the account, and the budget says it is unset.
+12. Ask "How much have I spent?" → a grounded €0/no-orders answer; ask "Set my monthly budget
+    to €300" → only a **proposal** appears (nothing saved). Save it with the explicit budget
+    form, then confirm the KPI/budget figures update.
+13. Plan a purchase, open the payment dialog, type the six-character code, confirm, approve in
+    the PayPal Sandbox popup, and verify the capture. Sign out and check that a second account
+    sees none of the first account's orders, budget or activity.
 
 ## Future phases
 
 - Real marketplace operations: multiple-offer checkout, split payments / group settlement
-  with escrow (explicitly out of MVP scope), real seller onboarding, webhooks instead of
-  client-triggered capture, durable order persistence for deployed environments.
+  with escrow (explicitly out of MVP scope), real seller onboarding, durable order
+  persistence for deployed environments, and webhook-driven capture as the primary path
+  (the signature-verified reconciliation endpoint is already in place).
 
 ---
 
@@ -451,9 +613,9 @@ included or required. All payment functionality uses PayPal Sandbox test account
 6. The modal shows **Verified capture ✓** with the internal order reference and the last
    8 digits of the capture id — produced only after the server verified the capture.
    The timeline gains a genuine `PAID` event; the offer ledger shows `PAID · sandbox …`.
-7. `/orders` (Order vault) lists the attempt with status "PAID — capture verified
-   server-side"; re-open the review modal → the same result replays as "already
-   processed" rather than paying twice.
+7. `/orders` (Order vault) lists the attempt with a `PAID` badge — hover it for "capture
+   verified server-side" — plus the last 8 digits of the capture id; re-open the review modal →
+   the same result replays as "already processed" rather than paying twice.
 8. To see the honest failure states: cancel in the PayPal popup (`checkout cancelled`,
    order stays unpaid) or withdraw PayPal config and restart (checkout panel explains
    that no payment can be faked).
@@ -485,7 +647,14 @@ included or required. All payment functionality uses PayPal Sandbox test account
     processed"; the ledger row shows `PAID · sandbox …8-digit`.
 13. Stop the PayPal config (`PAYPAL_CLIENT_ID` empty) → checkout panel explicitly says the
     gateway is not configured; no button fakes a payment.
-14. `/orders` renders pending orders as "PENDING" and captures as "PAID — capture verified
-    server-side" with the last-8 capture id.
+14. `/orders` renders the AG Grid ledger: pending rows carry a `PENDING` badge, captures a
+    `PAID` badge (hover a badge for the full "capture verified server-side" wording) with the
+    last-8 capture id — click a column header to sort, hover a header for its filter funnel,
+    and type in the search box to narrow every column at once.
 15. Rapid-click *Buy my share* → single pending order (no duplicate submissions); >10
     creations inside a minute get throttled with a friendly 429 message.
+16. `/api/health` → `status: "ok"` with PayPal/AI booleans only; no credential, secret or
+    order data appears in the response.
+17. With `PAYPAL_WEBHOOK_ID` configured, a Sandbox `PAYMENT.CAPTURE.COMPLETED` event marks
+    the matching vault order paid once; replaying the same event returns
+    `applied: false` and never double-applies.

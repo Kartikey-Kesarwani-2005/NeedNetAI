@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Wordmark } from "./ui/atoms";
 
 const LINKS = [
+  { href: "/paypilot", label: "PayPilot AI" },
   { href: "/market", label: "Market" },
   { href: "/create", label: "Add demand" },
   { href: "/orders", label: "My orders" },
@@ -36,12 +37,6 @@ export function TopNav() {
               </Link>
             );
           })}
-          <Link
-            href="/create"
-            className="ml-2 rounded-full bg-coral-500 px-4 py-1.5 font-display text-sm font-bold text-ink-950 transition-colors hover:bg-coral-400"
-          >
-            + New need
-          </Link>
         </nav>
 
         {/* Mobile toggle */}

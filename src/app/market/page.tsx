@@ -230,7 +230,7 @@ function GroupCard({
     >
       {/* Engine's pick — a ledger filing tab straight on the card's top edge */}
       {offers.length > 0 && offers.some((o) => o.recommended) && (
-        <span className="tag-tab bg-sage-400/10 text-sage-500">
+        <span className="tag-tab bg-sage-400/10 text-sage-400">
           ★ Engine&apos;s pick inside
         </span>
       )}
@@ -317,7 +317,7 @@ function ResetDemoButton() {
       }`}
       aria-live="polite"
     >
-      {done ? "Demo restored ✓" : confirming ? "Click again to confirm" : "Start over"}
+      {done ? "Market view reset ✓" : confirming ? "Click again to confirm" : "Reset view"}
     </button>
   );
 }

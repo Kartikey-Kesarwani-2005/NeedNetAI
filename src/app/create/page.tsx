@@ -501,14 +501,14 @@ function CRow({ k, v }: { k: string; v: string }) {
 /* ── Phase 3: natural-language demand panel ────────────── */
 
 const NL_EXAMPLES = [
-  "I need 12 office chairs for our startup. My budget is 30,000 total. They should be ergonomic, durable, and delivered within seven days.",
-  "Mujhe 6 sasti lamp chahiye hostel ke liye, 3000 rupaye mein, ek hafte ke andar. Price matters most.",
-  "Budget 900 each for a premium laptop, deliver overnight please.",
+  "I need 12 office chairs for our startup. My budget is €30,000 total. They should be ergonomic, durable, and delivered within seven days.",
+  "Mujhe 6 sasti lamp chahiye hostel ke liye, budget €3000 mein, ek hafte ke andar. Price matters most.",
+  "Budget €900 each for a premium laptop, deliver overnight please.",
 ];
 
 const CONFIDENCE_STYLE: Record<string, string> = {
-  high: "border-sage-500/60 text-sage-700",
-  medium: "border-amber-500/60 text-amber-700",
+  high: "border-sage-400/60 text-sage-400",
+  medium: "border-amber-400/60 text-amber-400",
   low: "border-coral-600/50 text-coral-600",
 };
 
@@ -598,7 +598,7 @@ function NlDemandPanel({
           maxLength={4000}
           required
           aria-label="Describe your need in your own words"
-          placeholder="e.g. I need 12 office chairs, budget 30,000 total, ergonomic and durable, within seven days…"
+          placeholder="e.g. I need 12 office chairs, budget €30,000 total, ergonomic and durable, within seven days…"
           className="min-h-0 flex-1 resize-y border-b-2 border-ivory-ink/30 bg-transparent py-2 text-base outline-none transition-colors placeholder:text-ivory-ink/30 focus:border-coral-600"
         />
         <button

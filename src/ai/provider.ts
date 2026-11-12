@@ -18,6 +18,7 @@
 import { CATEGORIES, ZONES, type CategoryId, type PriorityFocus, type Quality } from "@/data/demo";
 import type { Clarification, ExtractedDemand, GroupFacts } from "./types";
 import { clampEnum, finalizeExtraction } from "./fallbackExtraction";
+import type { RawIntentDecision } from "@/paypilot/intent";
 
 export interface AiProvider {
   readonly id: string;
@@ -30,6 +31,12 @@ export interface AiProvider {
    * must re-validate the chosen id against the same candidate list.
    */
   chooseOffer?(input: AgentDecisionContext): Promise<AgentDecision | null>;
+  /**
+   * PayPilot: classify a natural-language request into a small allow-listed
+   * intent. The model never executes actions and never supplies financial
+   * facts; the route validates and grounds every field.
+   */
+  interpretIntent?(text: string): Promise<RawIntentDecision | null>;
 }
 
 /** Real computed data the agent sees (no invented numbers possible). */
@@ -181,6 +188,21 @@ function createHttpProvider(config: AiConfig): AiProvider {
         reasoning: typeof raw.reasoning === "string" ? raw.reasoning : "",
       };
     },
+
+    async interpretIntent(text) {
+      const content = await callModel(PAYPILOT_INTENT_SYSTEM, `Request:\n"""\n${text.slice(0, MAX_TEXT_CHARS)}\n"""`);
+      if (!content) return null;
+      const json = parseJsonObject(content);
+      if (!json) return null;
+      // Raw fields only — coerceAiIntent enforces the allow-list.
+      return {
+        intent: json.intent,
+        amount: json.amount,
+        categoryId: json.categoryId,
+        buyerId: json.buyerId,
+        confidence: json.confidence,
+      };
+    },
   };
 }
 
@@ -237,6 +259,24 @@ function buildAgentUser(input: AgentDecisionContext): string {
   const buyer = { ...input.buyer, need: input.buyer.need.slice(0, 280) };
   return `Buyer profile:\n${JSON.stringify(buyer)}\n\nCandidate offers (engine-computed, authoritative):\n${JSON.stringify(input.candidates).slice(0, 8_000)}`;
 }
+
+const PAYPILOT_INTENT_SYSTEM = `You classify a user's request for PayPilot, a payment-intelligence assistant.
+Return STRICT JSON only, no prose. Schema:
+{
+  "intent": "set_budget" | "plan_purchase" | "explain_spending" | "prepare_payment" | "check_activity" | "help" | "unknown",
+  "amount": positive number | null,
+  "categoryId": "compute" | "stationery" | "kitchen" | "furniture" | null,
+  "buyerId": "bNN" | null,
+  "confidence": "high" | "medium" | "low"
+}
+Rules:
+- You ONLY classify. Do NOT execute, promise, approve or claim any payment, balance or transaction.
+- Extract an amount ONLY when the user literally states a budget/limit amount. Never estimate, convert or invent one.
+- Extract a buyerId ONLY when the user literally writes one (e.g. "B-01" → "b01").
+- "how much did I spend", "remaining budget", "transactions" → explain_spending.
+- "pay", "checkout", "prepare payment" → prepare_payment (a human still confirms).
+- If the request is unsupported or unclear → unknown.`;
+
 /* ── Response coercion (never trust model output) ──────── */
 
 export function coerceModelExtraction(json: Record<string, unknown>, originalText: string): ExtractedDemand & { originalText: string; modelClarifications?: Clarification[] } | null {

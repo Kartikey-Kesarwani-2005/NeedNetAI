@@ -7,6 +7,8 @@
 import { NextResponse } from "next/server";
 import { findOrder, updateOrderStatus } from "@/paypal/orders";
 import { clientKey, rateLimit } from "@/paypal/ratelimit";
+import { getSessionUser } from "@/auth/session";
+import { logActivity } from "@/paypilot/activity";
 
 export const runtime = "nodejs";
 
@@ -31,6 +33,17 @@ export async function POST(request: Request, context: { params: Promise<{ refere
     return NextResponse.json({ error: "order not found" }, { status: 404 });
   }
 
+  // Account-owned orders can only be cancelled by their owner.
+  if (order.userId) {
+    const sessionUser = await getSessionUser(request);
+    if (!sessionUser) {
+      return NextResponse.json({ error: "authentication required for this order" }, { status: 401 });
+    }
+    if (sessionUser.id !== order.userId) {
+      return NextResponse.json({ error: "this order belongs to another account" }, { status: 403 });
+    }
+  }
+
   if (order.status === "cancelled") {
     return NextResponse.json({ reference, status: "cancelled", duplicate: true }, { headers: { "Cache-Control": "no-store" } });
   }
@@ -44,6 +57,15 @@ export async function POST(request: Request, context: { params: Promise<{ refere
   const updated = await updateOrderStatus(reference, { status: "cancelled" });
   if (!updated) {
     return NextResponse.json({ error: "order can no longer be cancelled" }, { status: 409 });
+  }
+  if (updated.userId) {
+    await logActivity({
+      userId: updated.userId,
+      kind: "system",
+      source: "server",
+      summary: `Checkout ${reference} was cancelled at PayPal — it stays unpaid and nothing was captured.`,
+      reference,
+    });
   }
   return NextResponse.json({ reference, status: "cancelled" }, { headers: { "Cache-Control": "no-store" } });
 }

@@ -19,6 +19,7 @@ import { randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import type { CategoryId } from "@/data/demo";
 
 export type OrderStatus = "created" | "captured" | "cancelled" | "failed";
 
@@ -39,6 +40,12 @@ export interface DemoOrder {
   createdAt: string;
   updatedAt: string;
   capturedAt: string | null;
+  /** Owning PayPilot account. Unowned orders are legacy shared demo orders. */
+  userId?: string | null;
+  /** Confirmation-gated PayPilot intent that produced this checkout. */
+  paymentIntentId?: string | null;
+  /** Category snapshot so user-created demand is never guessed later. */
+  categoryId?: CategoryId | null;
 }
 
 interface StoreFile {
@@ -157,6 +164,29 @@ export function listOrders(): DemoOrder[] {
   } catch {
     return [];
   }
+}
+
+/** Orders owned by one PayPilot account (private financial surface). */
+export function listOrdersForUser(userId: string): DemoOrder[] {
+  return listOrders().filter((o) => o.userId === userId);
+}
+
+/** Legacy shared demo orders created before an account existed. */
+export function listUnownedOrders(): DemoOrder[] {
+  return listOrders().filter((o) => !o.userId);
+}
+
+/** Any open or captured order for this owner + offer + buyer (duplicate guard). */
+export function findActiveOrderFor(userId: string, buyerId: string, offerId: string): DemoOrder | null {
+  return (
+    listOrders().find(
+      (o) =>
+        o.userId === userId &&
+        o.buyerId === buyerId &&
+        o.offerId === offerId &&
+        (o.status === "created" || o.status === "captured"),
+    ) ?? null
+  );
 }
 
 /** Terminal-safe status update; returns the stored order, or null if raced. */

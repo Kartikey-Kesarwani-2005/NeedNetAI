@@ -32,6 +32,41 @@ export interface PayPalServiceLike {
     { ok: true; paypalOrderId: string } | { ok: false; reason: string }
   >;
   captureOrder(input: { paypalOrderId: string; requestId: string }): Promise<CaptureResult>;
+  /**
+   * Optional: read an order straight back from PayPal (v2 GET) so a stateless
+   * deployment — one that never sees `data/orders.json` — can still PROVE a
+   * capture happened before doing anything irreversible afterwards.
+   */
+  getOrder?(input: { paypalOrderId: string }): Promise<
+    { ok: true; order: PayPalOrderState } | { ok: false; reason: string }
+  >;
+  /**
+   * Optional: PayPal's official webhook signature verification
+   * (`POST /v1/notifications/verify-webhook-signature`). Never trust a webhook
+   * body without this check — the endpoint is public by necessity.
+   */
+  verifyWebhookSignature?(input: PayPalWebhookVerificationInput): Promise<{ ok: true } | { ok: false; reason: string }>;
+}
+
+/** The exact fields PayPal requires for webhook signature verification. */
+export interface PayPalWebhookVerificationInput {
+  transmissionId: string;
+  transmissionTime: string;
+  certUrl: string;
+  authAlgo: string;
+  transmissionSig: string;
+  webhookId: string;
+  /** The parsed webhook event; the route has already parsed the raw body. */
+  webhookEvent: unknown;
+}
+
+/** What a live PayPal order lookup reports about the capture. */
+export interface PayPalOrderState {
+  paypalOrderId: string;
+  status: string;
+  captureId: string | null;
+  amount: string | null;
+  currency: string | null;
 }
 
 export interface VerifiedCapture {
@@ -172,6 +207,61 @@ function createHttpService(config: PayPalConfig): PayPalServiceLike {
       if (normalized.verified) return normalized;
       return { verified: false as const, reason: normalized.reason, code: "rejected" as const };
     },
+
+    async verifyWebhookSignature(input) {
+      const token = await getAccessToken();
+      if (!token) return { ok: false as const, reason: "PayPal authentication failed" };
+      const result = await paypalFetch(config, "/v1/notifications/verify-webhook-signature", {
+        method: "POST",
+        token,
+        body: JSON.stringify({
+          transmission_id: input.transmissionId,
+          transmission_time: input.transmissionTime,
+          cert_url: input.certUrl,
+          auth_algo: input.authAlgo,
+          transmission_sig: input.transmissionSig,
+          webhook_id: input.webhookId,
+          webhook_event: input.webhookEvent,
+        }),
+      });
+      if (!result.ok) {
+        return { ok: false as const, reason: `PayPal webhook verification failed (HTTP ${result.status})` };
+      }
+      const status = (result.json as { verification_status?: unknown } | null)?.verification_status;
+      if (status !== "SUCCESS") {
+        return { ok: false as const, reason: "PayPal rejected the webhook signature" };
+      }
+      return { ok: true as const };
+    },
+
+    async getOrder({ paypalOrderId }) {
+      const token = await getAccessToken();
+      if (!token) return { ok: false as const, reason: "PayPal authentication failed" };
+      const result = await paypalFetch(config, `/v2/checkout/orders/${encodeURIComponent(paypalOrderId)}`, { method: "GET", token });
+      if (!result.ok) return { ok: false as const, reason: `PayPal order lookup failed (HTTP ${result.status})` };
+      const payload = result.json as
+        | {
+            id?: unknown;
+            status?: unknown;
+            purchase_units?: Array<{ payments?: { captures?: Array<{ id?: unknown; status?: unknown; amount?: { value?: unknown; currency_code?: unknown } }> } }>;
+          }
+        | null;
+      if (payload == null || typeof payload.id !== "string" || payload.id !== paypalOrderId) {
+        return { ok: false as const, reason: "PayPal returned an order that does not match the requested id" };
+      }
+      const capture = payload.purchase_units?.[0]?.payments?.captures?.[0];
+      const usableCapture = typeof capture?.id === "string" && capture.id.length >= 5 && capture.status === "COMPLETED";
+      return {
+        ok: true as const,
+        order: {
+          paypalOrderId: payload.id,
+          status: typeof payload.status === "string" ? payload.status : "UNKNOWN",
+          captureId: usableCapture ? (capture!.id as string) : null,
+          amount: typeof capture?.amount?.value === "string" ? capture.amount.value : null,
+          currency: typeof capture?.amount?.currency_code === "string" ? capture.amount.currency_code : null,
+        },
+      };
+    },
   };
 }
 
@@ -233,6 +323,12 @@ export function getPayPalService(): PayPalServiceLike | null {
   const config = readPayPalConfig();
   if (!config) return null;
   return createHttpService(config);
+}
+
+/** Webhook id from the PayPal dashboard (`PAYPAL_WEBHOOK_ID`); null when unset. */
+export function readPayPalWebhookId(env: NodeJS.ProcessEnv = process.env): string | null {
+  const id = env.PAYPAL_WEBHOOK_ID?.trim();
+  return id ? id : null;
 }
 
 /** Public (non-secret) state for the browser config-check route. */

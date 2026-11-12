@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { CATEGORY_BY_ID, QUALITY_LABEL, formatMoney, type Buyer } from "@/data/demo";
 import type { CSSProperties } from "react";
 import { useMarket } from "@/state/store";
@@ -8,6 +8,7 @@ import type { SimulatedOffer } from "@/engine/offers";
 import type { PurchaseRecord } from "@/state/reducer";
 import { EnginePickChip, PurchasedChip, QualityChip, RankChip } from "./chips";
 import { CheckoutPanel } from "./CheckoutPanel";
+import { useDialogFocus } from "@/components/ui/useDialogFocus";
 
 /**
  * Offer cards — a scannable comparison of the engine's ranked simulated
@@ -80,10 +81,10 @@ function OfferCard({
     >
       {/* Ledger tabs: PAID wins over engine's pick — one tab per card, never stacked */}
       {purchased ? (
-        <span className="tag-tab bg-cyan-400/10 text-cyan-500">✓ Paid · sandbox</span>
+        <span className="tag-tab bg-cyan-400/10 text-cyan-400">✓ Paid · sandbox</span>
       ) : (
         offer.recommended && (
-          <span className="tag-tab bg-sage-400/10 text-sage-500">
+          <span className="tag-tab bg-sage-400/10 text-sage-400">
             ★ Engine&apos;s pick · {offer.score.toFixed(2)}
           </span>
         )
@@ -156,16 +157,8 @@ function OfferCard({
 export function OfferReviewModal({ offer, onClose }: { offer: SimulatedOffer; onClose: () => void }) {
   const { state } = useMarket();
   const closeRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useDialogFocus(onClose, closeRef);
   const purchase: PurchaseRecord = state.purchases[offer.id];
-
-  useEffect(() => {
-    closeRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
 
   const group = state.computed.groups.find((g) => g.id === offer.groupId);
   const relatedBuyers: Buyer[] = group?.members ?? [];
@@ -184,7 +177,11 @@ export function OfferReviewModal({ offer, onClose }: { offer: SimulatedOffer; on
   return (
     <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label={`Offer review: ${offer.title}`}>
       <button type="button" className="scrim-in absolute inset-0 bg-ink-950/60" onClick={onClose} aria-label="Close offer review" />
-      <div className="sheet-in absolute inset-x-0 bottom-0 mx-auto max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-t-2xl bg-ink-850 p-6 shadow-2xl sm:inset-y-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:p-8">
+      <div
+        ref={dialogRef}
+        tabIndex={-1}
+        className="sheet-in absolute inset-x-0 bottom-0 mx-auto max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-t-2xl bg-ink-850 p-6 shadow-2xl outline-none sm:inset-y-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:p-8"
+      >
         <button
           ref={closeRef}
           type="button"

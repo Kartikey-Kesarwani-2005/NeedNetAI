@@ -14,6 +14,7 @@
 
   /* Text: warm ink (100 = primary, 300 = body, 400 = muted, 500 = faint) */
   --color-fog-100: #2a2118;
+  --color-fog-200: #3a3028;
   --color-fog-300: #4a4036;
   --color-fog-400: #6e6355;
   --color-fog-500: #97897a;
@@ -32,11 +33,19 @@
 
   /* Semantics readable on light: success / warn / info / AI */
   --color-cyan-400: #0e94a6; /* teal info */
+  --color-cyan-500: #14a3b8; /* teal medium */
   --color-amber-400: #b9791e; /* amber caution */
+  --color-amber-500: #c8811e; /* amber medium */
+  --color-amber-600: #9a6418; /* amber strong */
+  --color-amber-700: #7d5014; /* amber dark */
   --color-sage-400: #3e8a63; /* sage success */
+  --color-sage-500: #4a9e73; /* sage medium */
+  --color-sage-600: #2f6b4e; /* sage strong */
+  --color-sage-700: #24523e; /* sage dark */
   /* AI/lilac: the app's AI accents (timeline "AI PARSE / AGENTS", agent UI) */
   --color-lilac-300: #8b6cf0;
   --color-lilac-400: #7653e8;
+  --color-lilac-500: #6a4fd8;
 
   --font-display: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
   --font-body: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
@@ -94,6 +103,45 @@ body::after {
   font-size: 0.6875rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
+}
+
+/* ── Form field — the ledger's input line ───────────────── */
+.field {
+  display: block;
+  width: 100%;
+  border: 1px solid var(--color-ink-600);
+  border-radius: 0.75rem;
+  background: var(--color-ink-850);
+  padding: 0.6rem 0.85rem;
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--color-fog-100);
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.field::placeholder {
+  color: var(--color-fog-500);
+}
+.field:hover {
+  border-color: var(--color-ink-500);
+}
+.field:focus {
+  border-color: var(--color-coral-500);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-coral-500) 22%, transparent);
+}
+.field[aria-invalid="true"] {
+  border-color: var(--color-amber-400);
+}
+select.field {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--color-fog-500) 50%),
+    linear-gradient(135deg, var(--color-fog-500) 50%, transparent 50%);
+  background-position: calc(100% - 18px) calc(50% + 1px), calc(100% - 13px) calc(50% + 1px);
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 2.1rem;
+  cursor: pointer;
 }
 
 /* ── Motion ────────────────────────────────────────────── */
@@ -412,6 +460,64 @@ html {
     var(--color-ink-950) 10px 13px,
     transparent 13px 14px
   );
+}
+
+/* ── Order vault: the dark AG Grid ledger panel ─────────────────
+   /orders lays its table on the same deep-espresso surface as the TopNav
+   (ink-950), so a dark ledger sits on the warm paper page. The grid's
+   own colours come from these same tokens via AG Grid's theme params
+   (see src/app/orders/page.tsx); what lives here is the small amount
+   params can't express — the .tick header voice and the status badges. */
+
+/* Header cells speak in the micro-label voice: small, mono, tracked out,
+   upper case — the same four declarations .tick makes on its own text. */
+.ag-order-ledger .ag-header-cell-text {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* Status badge — one pill per order state. Each hue is a palette colour
+   mixed 60/40 with the page's ivory, which lifts 10px text to ≈7:1
+   against the ink-950 panel (the raw hues sit at 3–4:1 and would fail). */
+.order-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 0.3em 0.75em 0.34em;
+}
+.order-status::before {
+  content: "";
+  flex: none;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: currentColor;
+}
+.order-status--created {
+  color: color-mix(in srgb, var(--color-amber-400) 60%, var(--color-ivory-50));
+  background: color-mix(in srgb, var(--color-amber-400) 18%, transparent);
+}
+.order-status--captured {
+  color: color-mix(in srgb, var(--color-sage-400) 60%, var(--color-ivory-50));
+  background: color-mix(in srgb, var(--color-sage-400) 18%, transparent);
+}
+.order-status--cancelled {
+  color: var(--color-ivory-mute);
+  background: color-mix(in srgb, var(--color-ivory-50) 8%, transparent);
+}
+.order-status--failed {
+  color: color-mix(in srgb, var(--color-coral-600) 60%, var(--color-ivory-50));
+  background: color-mix(in srgb, var(--color-coral-600) 20%, transparent);
 }
 
 /* Rubber-stamp SLAM: the PAID stamp lands with a dip, wiggle and settle */

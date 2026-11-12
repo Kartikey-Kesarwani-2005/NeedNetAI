@@ -10,8 +10,8 @@
  *      + its current buyer records; the SERVER recomputes the price)
  *   3. PayPal JS SDK buttons        → buyer approves in the PayPal popup
  *   4. onApprove                    → POST capture (server verifies the
- *      capture payload against the stored order) — success is shown ONLY
- *      after the server confirms; the popup approval alone proves nothing.
+ *      capture payload against its HMAC-signed order token) — success is shown
+ *      ONLY after the server confirms; the popup approval alone proves nothing.
  *   5. onCancel / onError           → POST cancel (order stays unpaid)
  *
  * No fake transaction ids, no fake success states, submit guards everywhere.
@@ -22,61 +22,15 @@ import { useMarket, type CapturedInput } from "@/state/store";
 import type { SimulatedOffer } from "@/engine/offers";
 import type { Buyer } from "@/data/demo";
 import type { ComputedGroup } from "@/engine/engine";
-
-/* ── PayPal JS SDK typings (minimal, only what we use) ──── */
-
-interface PayPalButtonsConfig {
-  style?: Record<string, string | number>;
-  createOrder: () => string;
-  onApprove: (data: { orderID: string }) => void;
-  onCancel?: (data: { orderID?: string }) => void;
-  onError?: (err: unknown) => void;
-}
-interface PayPalNamespace {
-  Buttons: (config: PayPalButtonsConfig) => { render: (target: HTMLElement) => Promise<void>; close: () => void };
-}
-declare global {
-  interface Window {
-    paypal?: PayPalNamespace | Promise<PayPalNamespace>;
-  }
-}
-
-let sdkRequest: Promise<PayPalNamespace> | null = null;
-
-/**
- * buyer-country is a sandbox-only SDK parameter: it makes the popup serve the
- * buyer-side experience for the given country instead of the developer
- * account's region, which sidesteps the known unsupported-region login error.
- */
-function loadPayPalSdk(clientId: string, buyerCountry?: string): Promise<PayPalNamespace> {
-  const existing = window.paypal;
-  if (existing) return Promise.resolve(existing as PayPalNamespace);
-  if (sdkRequest) return sdkRequest;
-  sdkRequest = new Promise<PayPalNamespace>((resolve, reject) => {
-    const script = document.createElement("script");
-    script.src = `https://www.paypal.com/sdk/js?${new URLSearchParams({
-      "client-id": clientId,
-      currency: "EUR",
-      intent: "capture",
-      ...(buyerCountry ? { "buyer-country": buyerCountry } : {}),
-    })}`;
-    script.async = true;
-    script.onload = () => {
-      const ns = window.paypal as PayPalNamespace | undefined;
-      if (ns) resolve(ns);
-      else reject(new Error("PayPal SDK loaded without a usable namespace"));
-    };
-    script.onerror = () => reject(new Error("PayPal SDK failed to load"));
-    document.head.appendChild(script);
-  });
-  return sdkRequest;
-}
+import { loadPayPalSdk } from "@/components/paypal/sdk";
 
 interface CreateOrderResponse {
   reference: string;
   paypalOrderId: string;
   amount: string;
   currency: string;
+  /** HMAC-signed order token — the stateless proof the capture route verifies. */
+  token: string;
 }
 
 /* ── Types ─────────────────────────────────────────────── */
@@ -206,7 +160,7 @@ export function CheckoutPanel({ offer, group }: { offer: SimulatedOffer; group: 
         }),
       });
       const payload = (await res.json()) as CreateOrderResponse & { error?: string };
-      if (!res.ok || typeof payload.reference !== "string" || typeof payload.paypalOrderId !== "string") {
+      if (!res.ok || typeof payload.reference !== "string" || typeof payload.paypalOrderId !== "string" || typeof payload.token !== "string") {
         setCheckout({ step: "form", error: payload.error ?? "the server refused this checkout" });
         return;
       }
@@ -229,7 +183,7 @@ export function CheckoutPanel({ offer, group }: { offer: SimulatedOffer; group: 
                   const cap = await fetch(`/api/orders/${payload.reference}/capture`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ paypalOrderId: data.orderID }),
+                    body: JSON.stringify({ paypalOrderId: data.orderID, token: payload.token }),
                   });
                   const capBody = (await cap.json()) as {
                     status?: string;

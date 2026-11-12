@@ -18,6 +18,7 @@ import { BUYERS, type Buyer } from "@/data/demo";
 import { computeMarket } from "@/engine/engine";
 import { publicPayPalState, resolveCheckoutOffer, setPayPalServiceForTests, type PayPalServiceLike } from "@/paypal/paypal";
 import { createOrder, findOrder, listOrders, publicOrder, setOrderDataDir, updateOrderStatus, type DemoOrder } from "@/paypal/orders";
+import { signOrderToken, verifyOrderToken } from "@/paypal/orderToken";
 import { validateBuyerRecord } from "@/paypal/validation";
 import { __marketInternals, type MarketState } from "@/state/reducer";
 
@@ -115,6 +116,25 @@ async function storePendingOrder(input: Partial<DemoOrder> = {}): Promise<DemoOr
     ...input,
   });
   return findOrder(reference)!;
+}
+
+/** HMAC-signed order token — the stateless handoff the capture route verifies. */
+function orderToken(order: Pick<DemoOrder, "reference" | "paypalOrderId" | "buyerId" | "offerId" | "amount" | "currency">): string {
+  const token = signOrderToken({
+    reference: order.reference,
+    paypalOrderId: order.paypalOrderId ?? "",
+    buyerId: order.buyerId,
+    offerId: order.offerId,
+    amount: order.amount,
+    currency: order.currency,
+  });
+  if (!token) throw new Error("test environment has no signing secret");
+  return token;
+}
+
+/** Capture request body: posted PayPal order id + the signed order token. */
+function captureBody(order: DemoOrder, overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return { paypalOrderId: order.paypalOrderId, token: orderToken(order), ...overrides };
 }
 
 /* ── 4.1 Config & secret hygiene ───────────────────────── */
@@ -270,13 +290,26 @@ describe("POST /api/orders", () => {
     setPayPalServiceForTests(mockService());
     const res = await ordersPOST(jsonRequest("http://localhost/api/orders", checkoutBody()));
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { reference: string; paypalOrderId: string; amount: string; currency: string };
+    const body = (await res.json()) as { reference: string; paypalOrderId: string; amount: string; currency: string; token: string };
     expect(body.amount).toBe(offer.perBuyerCost["b01"].toFixed(2));
     expect(body.currency).toBe("EUR");
     expect(body.reference).toMatch(/^nno-[0-9a-f]{12}$/);
     const stored = findOrder(body.reference)!;
     expect(stored.status).toBe("created");
     expect(stored.paypalOrderId).toBe(body.paypalOrderId);
+
+    // The stateless handoff: an HMAC-signed token carrying exactly the
+    // authoritative fields (and never the signing secret itself).
+    const payload = verifyOrderToken(body.token);
+    expect(payload).toEqual({
+      reference: body.reference,
+      paypalOrderId: body.paypalOrderId,
+      buyerId: "b01",
+      offerId: offer.id,
+      amount: body.amount,
+      currency: "EUR",
+    });
+    expect(body.token).not.toContain(FAKE_CLIENT_SECRET);
   });
 
   it("returns 503 (not a fake order) when PayPal is not configured", async () => {
@@ -329,7 +362,7 @@ describe("POST /api/orders/[reference]/capture", () => {
         };
       },
     });
-    const res = await capturePOST(jsonRequest(`http://localhost/x/capture`, { paypalOrderId: order.paypalOrderId }), {
+    const res = await capturePOST(jsonRequest(`http://localhost/x/capture`, captureBody(order)), {
       params: Promise.resolve({ reference: order.reference }),
     });
     expect(res.status).toBe(200);
@@ -348,7 +381,7 @@ describe("POST /api/orders/[reference]/capture", () => {
         capture: { paypalOrderId: "PP-SOMEONE-ELSE", captureId: "8XA123456B9876543", amount: order.amount, currency: "EUR" },
       }),
     });
-    const res = await capturePOST(jsonRequest(`http://localhost/x/capture`, { paypalOrderId: order.paypalOrderId }), {
+    const res = await capturePOST(jsonRequest(`http://localhost/x/capture`, captureBody(order)), {
       params: Promise.resolve({ reference: order.reference }),
     });
     expect(res.status).toBe(409);
@@ -364,7 +397,7 @@ describe("POST /api/orders/[reference]/capture", () => {
         capture: { paypalOrderId, captureId: "8XA0000000000000", amount: "999.99", currency: "EUR" },
       }),
     });
-    const res = await capturePOST(jsonRequest(`http://localhost/x/capture`, { paypalOrderId: order.paypalOrderId }), {
+    const res = await capturePOST(jsonRequest(`http://localhost/x/capture`, captureBody(order)), {
       params: Promise.resolve({ reference: order.reference }),
     });
     expect(res.status).toBe(409);
@@ -380,7 +413,7 @@ describe("POST /api/orders/[reference]/capture", () => {
         capture: { paypalOrderId, captureId: "8XA0000000000001", amount: order.amount, currency: "USD" },
       }),
     });
-    const res = await capturePOST(jsonRequest(`http://localhost/x/capture`, { paypalOrderId: order.paypalOrderId }), {
+    const res = await capturePOST(jsonRequest(`http://localhost/x/capture`, captureBody(order)), {
       params: Promise.resolve({ reference: order.reference }),
     });
     expect(res.status).toBe(409);
@@ -393,24 +426,44 @@ describe("POST /api/orders/[reference]/capture", () => {
       ...mockService(),
       captureOrder: async () => ({ verified: false, reason: "PayPal capture failed (HTTP 402)", code: "rejected" }),
     });
-    const res = await capturePOST(jsonRequest(`http://localhost/x/capture`, { paypalOrderId: order.paypalOrderId }), {
+    const res = await capturePOST(jsonRequest(`http://localhost/x/capture`, captureBody(order)), {
       params: Promise.resolve({ reference: order.reference }),
     });
     expect(res.status).toBe(402);
     expect(findOrder(order.reference)?.status).toBe("failed");
   });
 
-  it("surfaces PayPal timeouts/outages as 502 api_error", async () => {
+  // [label, PayPal reason, forwarded-ip octet — keeps these calls in their own rate-limit bucket]
+  const apiErrors: Array<[string, string, number]> = [
+    ["timeout", "PayPal did not answer in time", 1],
+    ["HTTP 5xx", "PayPal capture failed (HTTP 500)", 2],
+    ["HTTP 429", "PayPal capture failed (HTTP 429)", 3],
+  ];
+
+  it.each(apiErrors)("keeps the order created (not failed) on a transient api_error — %s", async (_label, reason, octet) => {
     const order = await storePendingOrder();
     setPayPalServiceForTests({
       ...mockService(),
-      captureOrder: async () => ({ verified: false, reason: "PayPal did not answer in time", code: "api_error" }),
+      captureOrder: async () => ({ verified: false, reason, code: "api_error" as const }),
     });
-    const res = await capturePOST(jsonRequest(`http://localhost/x/capture`, { paypalOrderId: order.paypalOrderId }), {
-      params: Promise.resolve({ reference: order.reference }),
-    });
+    const ctx = { params: Promise.resolve({ reference: order.reference }) };
+    const send = () =>
+      new Request("http://localhost/x/capture", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-forwarded-for": `10.0.0.${octet}` },
+        body: JSON.stringify(captureBody(order)),
+      });
+
+    const res = await capturePOST(send(), ctx);
     expect(res.status).toBe(502);
-    expect(findOrder(order.reference)?.status).toBe("failed");
+    // A transient failure must NOT be terminal — the order stays retryable.
+    expect(findOrder(order.reference)?.status).toBe("created");
+
+    // Retrying the same reference (same PayPal-Request-Id) is allowed and is
+    // not blocked by the 409 "terminal state" guard.
+    const retry = await capturePOST(send(), ctx);
+    expect(retry.status).toBe(502);
+    expect(findOrder(order.reference)?.status).toBe("created");
   });
 
   it("replays the verified result on repeated capture (idempotency)", async () => {
@@ -431,9 +484,9 @@ describe("POST /api/orders/[reference]/capture", () => {
       ),
     );
     const ctx = { params: Promise.resolve({ reference: order.reference }) };
-    const first = await capturePOST(jsonRequest("http://localhost/x", { paypalOrderId: order.paypalOrderId }), ctx);
+    const first = await capturePOST(jsonRequest("http://localhost/x", captureBody(order)), ctx);
     expect(first.status).toBe(200);
-    const second = await capturePOST(jsonRequest("http://localhost/x", { paypalOrderId: order.paypalOrderId }), ctx);
+    const second = await capturePOST(jsonRequest("http://localhost/x", captureBody(order)), ctx);
     expect(second.status).toBe(200);
     const dup = (await second.json()) as { duplicate?: boolean };
     expect(dup.duplicate).toBe(true);
@@ -444,31 +497,133 @@ describe("POST /api/orders/[reference]/capture", () => {
     const order = await storePendingOrder();
     await updateOrderStatus(order.reference, { status: "cancelled" });
     setPayPalServiceForTests(mockService());
-    const res = await capturePOST(jsonRequest("http://localhost/x", { paypalOrderId: order.paypalOrderId }), {
+    const res = await capturePOST(jsonRequest("http://localhost/x", captureBody(order)), {
       params: Promise.resolve({ reference: order.reference }),
     });
     expect(res.status).toBe(409);
     expect(findOrder(order.reference)?.status).toBe("cancelled");
   });
 
-  it("rejects a tampered PayPal order id and unknown references", async () => {
+  it("rejects a tampered PayPal order id, replayed tokens and unknown references", async () => {
     const order = await storePendingOrder();
     setPayPalServiceForTests(mockService());
-    const mismatch = await capturePOST(jsonRequest("http://localhost/x", { paypalOrderId: "PP-OTHER" }), {
+
+    // Posted id differs from the signed one → 400, order untouched.
+    const mismatch = await capturePOST(jsonRequest("http://localhost/x", captureBody(order, { paypalOrderId: "PP-OTHER" })), {
       params: Promise.resolve({ reference: order.reference }),
     });
     expect(mismatch.status).toBe(400);
     expect(findOrder(order.reference)?.status).toBe("created"); // untouched
 
-    const unknown = await capturePOST(jsonRequest("http://localhost/x", { paypalOrderId: "PP-X" }), {
-      params: Promise.resolve({ reference: "nno-000000000000" }),
+    // A validly signed token for a DIFFERENT reference cannot be replayed here.
+    const foreign = await capturePOST(jsonRequest("http://localhost/x", { paypalOrderId: "PP-X", token: orderToken({ ...order, reference: "nno-000000000000" }) }), {
+      params: Promise.resolve({ reference: order.reference }),
     });
-    expect(unknown.status).toBe(404);
+    expect(foreign.status).toBe(400);
 
-    const malformed = await capturePOST(jsonRequest("http://localhost/x", { paypalOrderId: "PP-X" }), {
+    const malformed = await capturePOST(jsonRequest("http://localhost/x", { paypalOrderId: "PP-X", token: orderToken(order) }), {
       params: Promise.resolve({ reference: "../etc/passwd" }),
     });
     expect(malformed.status).toBe(400);
+
+    // No token at all → 400: the file lookup is no longer the source of truth.
+    const missing = await capturePOST(jsonRequest("http://localhost/x", { paypalOrderId: "PP-X" }), {
+      params: Promise.resolve({ reference: order.reference }),
+    });
+    expect(missing.status).toBe(400);
+    expect(findOrder(order.reference)?.status).toBe("created");
+  });
+});
+
+/* ── 4.6b Stateless tokens: tampering + cross-lambda capture ── */
+
+describe("signed order tokens (stateless capture)", () => {
+  /** PayPal double that captures the exact token amount, counting calls. */
+  function capturingService(order: DemoOrder, state: { captures: number }): PayPalServiceLike {
+    return {
+      ...mockService(),
+      captureOrder: async ({ paypalOrderId }) => {
+        state.captures += 1;
+        return { verified: true, capture: { paypalOrderId, captureId: "8XA123456B9876543", amount: order.amount, currency: order.currency } };
+      },
+    };
+  }
+
+  /** Each tamper case runs in its own rate-limit bucket (own forwarded IP). */
+  const send = (order: DemoOrder, body: Record<string, unknown>, ip: string): Request =>
+    new Request("http://localhost/x/capture", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-forwarded-for": ip },
+      body: JSON.stringify({ paypalOrderId: order.paypalOrderId, token: orderToken(order), ...body }),
+    });
+
+  it("rejects a token whose payload was tampered after signing", async () => {
+    const order = await storePendingOrder();
+    const state = { creates: 0, captures: 0 };
+    setPayPalServiceForTests(capturingService(order, state));
+
+    // Re-encode the payload with a cut price — the MAC no longer matches.
+    const [payloadB64, mac] = orderToken(order).split(".");
+    const payload = JSON.parse(Buffer.from(payloadB64, "base64url").toString("utf8")) as Record<string, unknown>;
+    payload.amount = "0.01";
+    const forged = `${Buffer.from(JSON.stringify(payload), "utf8").toString("base64url")}.${mac}`;
+
+    const res = await capturePOST(send(order, { token: forged }, "10.1.0.1"), { params: Promise.resolve({ reference: order.reference }) });
+    expect(res.status).toBe(400);
+    expect(state.captures).toBe(0); // PayPal is never asked to capture a forged order
+    expect(findOrder(order.reference)?.status).toBe("created");
+  });
+
+  it("rejects a token signed with the wrong secret", async () => {
+    const order = await storePendingOrder();
+    const state = { creates: 0, captures: 0 };
+    setPayPalServiceForTests(capturingService(order, state));
+
+    const foreign = signOrderToken(
+      {
+        reference: order.reference,
+        paypalOrderId: order.paypalOrderId ?? "",
+        buyerId: order.buyerId,
+        offerId: order.offerId,
+        amount: order.amount,
+        currency: order.currency,
+      },
+      "not-the-server-secret",
+    );
+    const res = await capturePOST(send(order, { token: foreign }, "10.1.0.2"), { params: Promise.resolve({ reference: order.reference }) });
+    expect(res.status).toBe(400);
+    expect(state.captures).toBe(0);
+    expect(findOrder(order.reference)?.status).toBe("created");
+  });
+
+  it("rejects a single flipped signature character", async () => {
+    const order = await storePendingOrder();
+    const state = { creates: 0, captures: 0 };
+    setPayPalServiceForTests(capturingService(order, state));
+
+    const [payloadB64, mac] = orderToken(order).split(".");
+    const flipped = `${payloadB64}.${mac[0] === "A" ? "B" : "A"}${mac.slice(1)}`;
+    const res = await capturePOST(send(order, { token: flipped }, "10.1.0.3"), { params: Promise.resolve({ reference: order.reference }) });
+    expect(res.status).toBe(400);
+    expect(state.captures).toBe(0);
+  });
+
+  it("captures when orders.json belongs to another lambda (no local file at all)", async () => {
+    const order = await storePendingOrder();
+    const token = orderToken(order);
+    const state = { creates: 0, captures: 0 };
+    setPayPalServiceForTests(capturingService(order, state));
+
+    // Simulate a second lambda: same signed token, completely different filesystem.
+    rmSync(path.join(tempDir, "orders.json"), { force: true });
+    expect(findOrder(order.reference)).toBeNull();
+
+    const res = await capturePOST(send(order, { token }, "10.1.0.4"), { params: Promise.resolve({ reference: order.reference }) });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { status: string; amount: string; currency: string; captureId: string };
+    expect(body).toMatchObject({ status: "captured", amount: order.amount, currency: "EUR", captureId: "8XA123456B9876543" });
+    expect(state.captures).toBe(1);
+    expect(findOrder(order.reference)).toBeNull(); // history stayed best-effort
   });
 });
 

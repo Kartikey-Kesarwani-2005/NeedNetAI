@@ -6,11 +6,25 @@
  * amount (the buyer's share at their requested quantity). The client-submitted
  * total is never accepted. If PayPal is not configured the route returns an
  * informative 503 — it never fakes an order or a price.
+ *
+ * The response also carries an HMAC-SHA256 signed order token — the stateless
+ * handoff the capture route verifies (orders.json is best-effort history only,
+ * since lambdas do not share a filesystem).
  */
 import { NextResponse } from "next/server";
 import { getPayPalService, publicPayPalState, resolveCheckoutOffer } from "@/paypal/paypal";
-import { createOrder, newOrderReference, listOrders, publicOrder } from "@/paypal/orders";
+import {
+  createOrder,
+  newOrderReference,
+  listOrdersForUser,
+  listUnownedOrders,
+  publicOrder,
+} from "@/paypal/orders";
+import { signOrderToken } from "@/paypal/orderToken";
 import { clientKey, rateLimit } from "@/paypal/ratelimit";
+import { getSessionUser } from "@/auth/session";
+import { categoryForOfferId } from "@/paypilot/catalog";
+import { logActivity } from "@/paypilot/activity";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -54,6 +68,11 @@ export async function POST(request: Request): Promise<NextResponse> {
   const { offer, buyerId, amount, currency } = resolved.resolved;
   const amountText = amount.toFixed(2);
 
+  // Optional ownership: a signed-in PayPilot account owns the orders it
+  // creates. Legacy / demo checkouts remain unowned and keep working.
+  const sessionUser = await getSessionUser(request);
+  const categoryId = categoryForOfferId(offer.id);
+
   const service = getPayPalService();
   if (!service) {
     return NextResponse.json({ error: "PayPal is not available on the server" }, { status: 503 });
@@ -67,32 +86,72 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: created.reason }, { status: 502 });
   }
 
-  // Persist only after PayPal accepted the order, so every stored order is
-  // tied to a real PayPal order id.
-  const stored = await createOrder({
+  // Best-effort history only: lambdas do not share a filesystem, so this write
+  // may land in a store no other instance can read — it must never block checkout.
+  try {
+    await createOrder({
+      reference,
+      groupId: offer.groupId,
+      offerId: offer.id,
+      buyerId,
+      sellerName: offer.sellerName,
+      strategyLabel: offer.strategyLabel,
+      amount: amountText,
+      currency,
+      paypalOrderId: created.paypalOrderId,
+      ...(sessionUser ? { userId: sessionUser.id, categoryId } : {}),
+    });
+  } catch {
+    // history/audit only — capture trusts the signed token below, not this file
+  }
+
+  if (sessionUser) {
+    await logActivity({
+      userId: sessionUser.id,
+      kind: "payment_prepared",
+      source: "server",
+      summary: `Created Sandbox checkout ${reference} for ${offer.sellerName} at €${amountText}. Awaiting PayPal approval; nothing is captured yet.`,
+      reference,
+    });
+  }
+
+  // The capture route reads ONLY this token (HMAC-verified), so checkout stays
+  // correct even when orders.json lives in a different lambda's filesystem.
+  const token = signOrderToken({
     reference,
-    groupId: offer.groupId,
-    offerId: offer.id,
+    paypalOrderId: created.paypalOrderId,
     buyerId,
-    sellerName: offer.sellerName,
-    strategyLabel: offer.strategyLabel,
+    offerId: offer.id,
     amount: amountText,
     currency,
-    paypalOrderId: created.paypalOrderId,
+    ...(sessionUser ? { userId: sessionUser.id } : {}),
   });
+  if (!token) {
+    return NextResponse.json(
+      { error: "no order signing secret configured (ORDER_SIGNING_SECRET / PAYPAL_CLIENT_SECRET)" },
+      { status: 503 },
+    );
+  }
 
   // Minimal, safe response — no internal state beyond what checkout needs.
   return NextResponse.json({
-    reference: stored.reference,
+    reference,
     paypalOrderId: created.paypalOrderId,
     amount: amountText,
     currency,
+    token,
     environment: state.environment,
   });
 }
 
-export async function GET(): Promise<NextResponse> {
-  const orders = listOrders()
+export function GET(): Promise<NextResponse>;
+export function GET(request: Request): Promise<NextResponse>;
+export async function GET(request?: Request): Promise<NextResponse> {
+  // Authenticated callers see only their own orders. Unauthenticated callers
+  // (and the legacy test/demo surface) see only unowned legacy demo orders —
+  // never another account's private financial history.
+  const user = request ? await getSessionUser(request) : null;
+  const orders = (user ? listOrdersForUser(user.id) : listUnownedOrders())
     .slice(0, 100)
     .map(publicOrder);
   return NextResponse.json({ orders }, { headers: { "Cache-Control": "no-store" } });

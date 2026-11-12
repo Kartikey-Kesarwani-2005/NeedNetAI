@@ -24,7 +24,8 @@ checkout — buyer approves in the PayPal popup, the server verifies the capture
 2. **Deterministic matching engine** (`src/engine`): normalization & validation → pairwise
    compatibility → group formation → group intelligence → three seller strategies
    (conservative, aggressive, cooperative pooling) → eligibility, offers, ranking. The engine
-   is the single source of truth for every price; the client can never set one.
+   is the single source of truth for every price; the price is recomputed server-side
+   from validated inputs.
 3. **AI reads and explains — it never overrides:** buyers write free text; an
    OpenAI-compatible model (server-only adapter) extracts structured demand, which is
    hard-validated, and the AI can narrate the engine's own numbers ("why this group, why this
@@ -41,14 +42,26 @@ checkout — buyer approves in the PayPal popup, the server verifies the capture
    whole model answer and the deterministic engine pick substitutes, truthfully labelled
    `source: "engine"`). The proposal then hands off to the existing review modal where the
    **human** approves payment in PayPal Sandbox and the server verifies the capture.
+6. **PayPilot AI — a private, account-scoped payment workspace (`/paypilot`):** scrypt-hashed
+   accounts, HMAC-signed HttpOnly sessions, and per-user scoping for every budget, order,
+   payment intent and activity record. Plain-language requests are **classified** by the
+   optional model, validated server-side, and answered only from stored verified captures, a
+   saved planning budget and the deterministic planner — the assistant cannot capture money,
+   change a transaction or set a budget. Spending counts **only** server-verified captures;
+   pending orders are shown separately. A purchase plan is always confirmation-gated
+   (`requiresConfirmation: true`, `autoPay: false`): prepare → type the six-character code →
+   **human approves in the PayPal popup** → the existing capture route verifies the signed
+   token, owner, amount and currency before marking anything paid.
 
 **Honest scoping (by design, not by omission):** seller strategies are simulated quotes on
-synthetic data; only PayPal's payment rails are real (Sandbox). Without AI credentials the
-app still runs completely — every AI path has a deterministic fallback that is labelled as
-such in the UI.
+synthetic data; only PayPal's payment rails are real (Sandbox). PayPilot account/budget/
+intent storage is local JSON demo persistence, not a deployed database, and there is no email
+verification/password-reset/OAuth/MFA flow. Without AI credentials the app still runs
+completely — every AI path has a deterministic fallback that is labelled as such in the UI.
 
-**Run it:** `npm install` → create `.env` with PayPal Sandbox CLIENT_ID/SECRET (see
-`.env.example`) → `npm run dev` → open `http://localhost:3000`. Full, step-by-step
+**Run it:** `npm install` → create `.env` with PayPal Sandbox CLIENT_ID/SECRET and an
+`AUTH_SIGNING_SECRET` (see `.env.example`) → `npm run dev` → open
+`http://localhost:3000/paypilot` (or `/market` for the checkout demo). Full, step-by-step
 instructions are in the repo's README, including how to create Sandbox buyer/seller accounts.
 
 ---
@@ -60,10 +73,19 @@ instructions are in the repo's README, including how to create Sandbox buyer/sel
   **server-side only**: the client asks for an order, the server creates it in the Sandbox
   with its own authoritative amount/currency, and capture responses are strictly re-verified
   (status, amount, currency) before anything is marked paid.
-- **PayPal JavaScript SDK (`@paypal/react-paypal-js` / PayPal Buttons)** — the approval popup
-  experience in the review modal; the human is the final authority on payment.
+- **PayPal JavaScript SDK** — loaded manually in `CheckoutPanel.tsx` (a `sdk/js` script tag
+  injected into the page, then `window.paypal.Buttons` renders the approval popup inside the
+  review modal; no `@paypal/react-paypal-js` wrapper); the human is the final authority on
+  payment.
 - **Sandbox environment** — real Sandbox credentials, real buyers/sellers, real order
   lifecycle (approve → capture → cancel → verify).
+- **PayPal webhooks** — optional `POST /api/paypal/webhook` verifies each event with
+  PayPal's `verify-webhook-signature` API before idempotently reconciling the order vault;
+  an `ORDER_ALREADY_CAPTURED` retry is recovered via an Orders v2 read-back instead of
+  being marked failed.
+- **Account & session security for PayPilot** — scrypt password hashes with per-account salts,
+  HMAC-SHA256 HttpOnly/SameSite session cookies, and server-derived owner scoping on every
+  private route. AI output is never trusted with payment capture or arbitrary data access.
 
 **AI**
 - **OpenAI-compatible chat-completions model** (any OpenAI-compatible endpoint works, via a
@@ -75,17 +97,20 @@ instructions are in the repo's README, including how to create Sandbox buyer/sel
   3. **The purchasing agent** (`POST /api/agent/purchase`) — the agentic-commerce loop: the
      model chooses among engine-computed offers, and the route validates everything
      deterministically (candidate membership, no invented money) with an engine fallback.
-- **A fully deterministic path without any AI** — when no credentials are configured, mines
-  run locally: rule-based extraction, deterministic explanations, engine-as-agent. The UI
-  always states truthfully what ran.
+  4. **PayPilot intent classification** (`POST /api/paypilot/chat`) — the model may only
+     classify a request and extract literal parameters; a strict allow-list rejects malformed
+     or unsupported output and the deterministic rule parser takes over, truthfully labelled.
+- **A fully deterministic path without any AI** — when no credentials are configured,
+  everything runs locally: rule-based extraction, deterministic explanations,
+  engine-as-agent. The UI always states truthfully what ran.
 
 **Framework & tooling**
 - Next.js 15 (App Router, Route Handlers), React 19, TypeScript (strict, 0 `any` in API
-  surfaces), Tailwind CSS v4 (custom design system), Vitest (117 tests — engine, validation,
-  payment lifecycle, agent), ESLint, `gh`/GitHub for the public repo, Postman-style manual
-  API checks during development.
+  surfaces), Tailwind CSS v4 (custom design system), Vitest (177 tests — engine, validation,
+  payment lifecycle, webhook hardening, agent, PayPilot auth/intelligence/payment safety),
+  ESLint, `gh`/GitHub for the public repo.
 
-**Nonce/honesty note:** no other sponsor tools were required; PayPal + AI integration is
+**Honesty note:** no other sponsor tools were required; PayPal + AI integration is
 central to the project by design.
 
 ---
@@ -95,4 +120,5 @@ central to the project by design.
 - [ ] Project URL → https://github.com/Kartikey-Kesarwani-2005/NeedNetAI (public, MIT LICENSE visible in repo root + About)
 - [ ] Demo video → record (<3 min) using the script in README, upload to YouTube (public), paste link
 - [ ] One browser pass: full Sandbox purchase (approve → capture → "Verified capture ✓" → `/orders` PAID)
+- [ ] PayPilot pass: register → grounded chat → save budget → plan → type code → PayPal capture → verify a second account cannot see it
 - [ ] Paste the two blocks above into the form fields

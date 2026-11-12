@@ -32,9 +32,9 @@ const fraunces = Fraunces({
 });
 
 export const metadata: Metadata = {
-  title: "NeedNet AI — The Living Market",
+  title: "NeedNet AI — PayPilot AI & The Living Market",
   description:
-    "NeedNet AI organizes scattered customer demand into compatible groups so competing sellers can respond with relevant offers. Buyers approve individual purchases through server-verified PayPal Sandbox checkout. Built on synthetic data.",
+    "NeedNet AI organizes scattered customer demand into compatible groups so competing sellers can respond with relevant offers. PayPilot AI adds natural-language payment intelligence, planning budgets and confirmation-gated PayPal Sandbox checkout — buyers approve every purchase themselves. Built on synthetic data.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

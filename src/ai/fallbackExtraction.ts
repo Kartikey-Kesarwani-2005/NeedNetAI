@@ -228,7 +228,7 @@ export function finalizeExtraction(
       question: "What is your budget ceiling (total for the lot, or per unit)?",
     });
   } else if (budget.basis === "total" && quantity != null && quantity > 1) {
-    notes.push(`Budget ₹/€ ${budget.amount} treated as the LOT TOTAL → ~€${Math.round(budget.amount / quantity)} per unit`);
+    notes.push(`Budget €${budget.amount} treated as the LOT TOTAL → ~€${Math.round(budget.amount / quantity)} per unit`);
   }
   if (partial.deadlineDays?.value == null) {
     missingFields.push("deadlineDays");

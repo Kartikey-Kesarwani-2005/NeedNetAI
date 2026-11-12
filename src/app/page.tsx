@@ -47,11 +47,17 @@ export default function LandingPage() {
 
             <div className="mt-8 flex flex-wrap items-center gap-4">
               <Link
-                href="/market"
+                href="/paypilot"
                 className="group rounded-full bg-ink-950 px-7 py-3.5 font-display text-base font-bold text-ivory-50 shadow-[0_4px_0_var(--color-coral-500)] transition-all hover:-translate-y-0.5 hover:shadow-[0_6px_0_var(--color-coral-500)] active:translate-y-[2px] active:shadow-[0_1px_0_var(--color-coral-500)]"
               >
-                Explore the market
+                Open PayPilot AI
                 <span className="ml-2 inline-block transition-transform group-hover:translate-x-1" aria-hidden>→</span>
+              </Link>
+              <Link
+                href="/market"
+                className="rounded-full border border-ink-500 bg-ink-850 px-6 py-3.5 font-display text-base font-semibold text-fog-100 transition-colors hover:border-ink-950"
+              >
+                Explore the market
               </Link>
               <Link
                 href="/create"
@@ -107,6 +113,73 @@ export default function LandingPage() {
             ))}
           </ol>
           <p className="mt-4 text-xs text-fog-500">Step 4 runs on PayPal Sandbox test accounts — simulated payment rails, never a real vendor.</p>
+        </section>
+
+        {/* ── PayPilot — the central payment experience ────────────── */}
+        <section id="paypilot" className="border-t border-ink-600 py-16">
+          <div className="grid gap-12 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:gap-20">
+            <div>
+              <p className="tick text-coral-600">PAYPILOT AI</p>
+              <h2 className="mt-3 font-print text-3xl font-semibold tracking-tight text-fog-100 sm:text-4xl">
+                Confirm first, then pay — never the other way around
+              </h2>
+              <p className="mt-5 max-w-[48ch] text-[14px] leading-relaxed text-fog-400">
+                PayPilot turns plain language into a server-priced purchase plan, then gates every
+                payment behind a one-time code you type yourself. The AI classifies intent — it
+                never sets a price, approves a payment, or captures money. Only a server-verified
+                PayPal Sandbox capture counts as spend.
+              </p>
+              <ul className="mt-6 space-y-3 text-[13px] leading-relaxed text-fog-400">
+                <li className="flex items-start gap-2">
+                  <span className="mt-0.5 flex-shrink-0 text-coral-600">▹</span>
+                  Deterministic engine computes every quote — no invented prices.
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="mt-0.5 flex-shrink-0 text-coral-600">▹</span>
+                  A six-character confirmation code is a hard gate before any PayPal order exists.
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="mt-0.5 flex-shrink-0 text-coral-600">▹</span>
+                  You approve in the PayPal Sandbox popup; the server verifies the capture.
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="mt-0.5 flex-shrink-0 text-coral-600">▹</span>
+                  Verified spend, planning budgets and an audit trail — no fabricated balances.
+                </li>
+              </ul>
+              <Link
+                href="/paypilot"
+                className="mt-6 inline-flex rounded-full bg-coral-500 px-6 py-3 font-display text-base font-bold text-ink-950 transition-colors hover:bg-coral-400"
+              >
+                Open PayPilot workspace →
+              </Link>
+            </div>
+
+            <div className="rounded-2xl border border-ink-600 bg-ink-850 p-5 shadow-sm">
+              <p className="tick text-fog-500 mb-2">THE PAYPILOT FLOW</p>
+              <ol className="space-y-3 text-[12px] leading-relaxed text-fog-400">
+                <li className="flex items-start gap-3">
+                  <span className="flex-shrink-0 rounded-full border border-ink-600 px-2 py-0.5 text-fog-400">1</span>
+                  <span>Set a planning budget (a limit, not a bank balance).</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="flex-shrink-0 rounded-full border border-ink-600 px-2 py-0.5 text-fog-400">2</span>
+                  <span>Ask PayPilot to plan a purchase from computed engine offers.</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="flex-shrink-0 rounded-full border border-ink-600 px-2 py-0.5 text-fog-400">3</span>
+                  <span>Review the quote, then type the six-character confirmation code.</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="flex-shrink-0 rounded-full border border-ink-600 px-2 py-0.5 text-fog-400">4</span>
+                  <span>Approve in PayPal Sandbox — the server verifies capture before it counts.</span>
+                </li>
+              </ol>
+              <p className="mt-4 text-[10.5px] leading-relaxed text-fog-500">
+                Sandbox simulation — no real money, goods, vendor or bank balance.
+              </p>
+            </div>
+          </div>
         </section>
 
         {/* ── Why this is different ─────────────────────── */}

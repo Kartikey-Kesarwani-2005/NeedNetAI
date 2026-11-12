@@ -7,6 +7,7 @@ import type { ExplanationResponse, GroupFacts } from "@/ai/types";
 import { deterministicExplanation, type ValidatedExplanation } from "@/ai/validate";
 import type { ComputedGroup } from "@/engine/engine";
 import { useMarket } from "@/state/store";
+import { useDialogFocus } from "@/components/ui/useDialogFocus";
 import type { AgentAdviceResponse } from "@/app/api/agent/purchase/route";
 import { AvailabilityChip, CompatibilityChip, EnginePickChip, PurchasedChip, QualityChip, RankChip, TrustChip } from "./chips";
 
@@ -17,6 +18,13 @@ interface GroupSheetProps {
   onReviewOffer?: (offerId: string) => void;
 }
 
+/** Minimal shape read from GET /api/orders for the funding bar. */
+interface FundingOrder {
+  groupId: string;
+  buyerId: string;
+  status: string;
+}
+
 /**
  * Demand group detail — a right-hand sheet over the market.
  * Every number and reason comes from the matching engine's computed
@@ -25,15 +33,6 @@ interface GroupSheetProps {
 export function GroupSheet({ groupId, onClose, onReviewOffer }: GroupSheetProps) {
   const { state, select, withdraw } = useMarket();
   const closeRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    closeRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
 
   const g = state.computed.groups.find((x) => x.id === groupId);
 
@@ -63,6 +62,8 @@ export function GroupSheet({ groupId, onClose, onReviewOffer }: GroupSheetProps)
         <span className="tick rounded-full border border-amber-400/50 bg-amber-400/10 px-2 py-0.5 text-amber-400">Demo data</span>
         <span className="tick rounded-full border border-ink-600 px-2 py-0.5 text-fog-300">alignment score {m.avgPairScore.toFixed(2)}</span>
       </div>
+
+      <GroupFundingBar groupId={g.id} memberIds={g.members.map((mem) => mem.id)} />
 
       <Block title="What this group wants">
         <p className="text-sm leading-relaxed text-fog-300">{g.objective}</p>
@@ -477,7 +478,7 @@ function AgentAdviceBlock({
         <div className="mt-3 rounded-xl border border-lilac-300/50 bg-lilac-300/5 p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="tick rounded-full border border-lilac-300/60 bg-lilac-300/10 px-2 py-0.5 text-lilac-400">
-              {advice.source === "ai" ? "AI AGENT&apos;S CHOICE" : "ENGINE AGENT (no AI on server)"}
+              {advice.source === "ai" ? "AI AGENT'S CHOICE" : "ENGINE AGENT (no AI on server)"}
             </span>
             <span className="tick text-fog-500">run {advice.runId}</span>
           </div>
@@ -501,6 +502,74 @@ function AgentAdviceBlock({
         </div>
       )}
     </Block>
+  );
+}
+
+/**
+ * Group funding bar (UI only).
+ *
+ * Reads the server's order vault (GET /api/orders) and reports how many of the
+ * group's current members hold a server-verified capture ("paid"). It only
+ * DISPLAYS that count — it never prices, captures, or touches payment logic.
+ * Pending, cancelled and failed orders never count as paid.
+ */
+function GroupFundingBar({ groupId, memberIds }: { groupId: string; memberIds: string[] }) {
+  const [paid, setPaid] = useState<number | null>(null);
+  const [unreachable, setUnreachable] = useState(false);
+
+  // Stable key so a re-created array does not re-trigger the fetch.
+  const memberKey = memberIds.join(",");
+
+  useEffect(() => {
+    let cancelled = false;
+    setPaid(null);
+    setUnreachable(false);
+    (async () => {
+      try {
+        const res = await fetch("/api/orders", { headers: { Accept: "application/json" } });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const payload = (await res.json()) as { orders?: FundingOrder[] };
+        const members = new Set(memberKey.length > 0 ? memberKey.split(",") : []);
+        const payers = new Set(
+          (payload.orders ?? [])
+            .filter((o) => o.status === "captured" && o.groupId === groupId && members.has(o.buyerId))
+            .map((o) => o.buyerId),
+        );
+        if (!cancelled) setPaid(payers.size);
+      } catch {
+        if (!cancelled) setUnreachable(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [groupId, memberKey]);
+
+  const total = memberIds.length;
+  const ratio = paid == null || total === 0 ? 0 : paid / total;
+
+  return (
+    <div
+      className="mt-4 rounded-xl border border-ink-600 bg-ink-850 px-3 py-2.5"
+      title="Members of this group with a server-verified PayPal capture, read from the server's order vault."
+    >
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="tick text-fog-500">Group funding</span>
+        {paid == null ? (
+          <span className="text-[13px] text-fog-500">{unreachable ? "order store unavailable" : "checking payments…"}</span>
+        ) : (
+          <span className="text-[13px] font-medium text-fog-100">
+            {paid}/{total} members paid
+          </span>
+        )}
+      </div>
+      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-ink-700">
+        <div
+          className="h-full rounded-full bg-sage-400 transition-[width] duration-300"
+          style={{ width: `${Math.round(ratio * 100)}%` }}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -534,10 +603,15 @@ function SheetFrame({
   closeRef: React.RefObject<HTMLButtonElement | null>;
   children: React.ReactNode;
 }) {
+  const dialogRef = useDialogFocus(onClose, closeRef);
   return (
     <div className="fixed inset-0 z-40" role="dialog" aria-modal="true" aria-label="Demand group detail">
       <button type="button" className="scrim-in absolute inset-0 bg-ink-950/50" onClick={onClose} aria-label="Close group detail" />
-      <aside className="sheet-in absolute right-0 top-0 h-full w-full max-w-xl overflow-y-auto bg-ink-900 p-6 shadow-2xl sm:p-8">
+      <aside
+        ref={dialogRef}
+        tabIndex={-1}
+        className="sheet-in absolute right-0 top-0 h-full w-full max-w-xl overflow-y-auto bg-ink-900 p-6 shadow-2xl outline-none sm:p-8"
+      >
         <button
           ref={closeRef}
           type="button"
