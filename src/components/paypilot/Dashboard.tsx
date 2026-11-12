@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { BUYERS, formatMoney } from "@/data/demo";
 import type {
   BudgetSettings,
@@ -38,10 +39,11 @@ interface PaymentTarget {
  * payment dialog is opened only with a server-computed engine plan, and the
  * capture stays authoritative on the server.
  */
-export function Dashboard() {
+export function Dashboard({ callbackUrl }: { callbackUrl?: string }) {
   const [boot, setBoot] = useState<Boot>("loading");
   const [bootError, setBootError] = useState<string | null>(null);
   const [user, setUser] = useState<SessionUser | null>(null);
+  const router = useRouter();
 
   const [insights, setInsights] = useState<TransactionInsights | null>(null);
   const [budget, setBudget] = useState<BudgetSettings | null>(null);
@@ -118,6 +120,15 @@ export function Dashboard() {
   useEffect(() => {
     if (user) void refresh();
   }, [user, refresh]);
+
+  // Already signed in and we arrived with a callbackUrl (e.g. after a
+  // middleware redirect from a protected page): return to the page the user
+  // originally requested instead of showing the dashboard again.
+  useEffect(() => {
+    if (user && callbackUrl && callbackUrl !== "/paypilot") {
+      void router.replace(callbackUrl);
+    }
+  }, [user, callbackUrl, router]);
 
   const onAuthenticated = useCallback(
     (next: SessionUser) => {
@@ -202,7 +213,7 @@ export function Dashboard() {
   }
 
   if (!user) {
-    return <PayPilotAuth onAuthenticated={onAuthenticated} />;
+    return <PayPilotAuth onAuthenticated={onAuthenticated} callbackUrl={callbackUrl} />;
   }
 
   const recommended =

@@ -11,15 +11,22 @@ export const metadata: Metadata = {
 /**
  * /paypilot — the private, auth-gated PayPilot workspace.
  *
- * The page is a thin shell; all financial data is fetched client-side from
- * auth-gated routes so an unauthenticated visitor never receives another
- * account's orders, budget or activity.
+ * Also serves as the existing sign-in surface: when there is no session the
+ * Dashboard renders the login / register form instead of financial data.
+ *
+ * Accepts an optional `callbackUrl` so the user is returned to the page they
+ * originally requested after signing in (e.g. /orders).
  */
-export default function PayPilotPage() {
+export default async function PayPilotPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ callbackUrl?: string }>;
+}) {
+  const { callbackUrl } = await searchParams;
   return (
     <div className="market-grid min-h-screen bg-ink-900">
       <TopNav />
-      <Dashboard />
+      <Dashboard callbackUrl={callbackUrl} />
     </div>
   );
 }

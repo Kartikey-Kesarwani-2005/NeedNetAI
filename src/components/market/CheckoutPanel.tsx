@@ -24,6 +24,18 @@ import type { Buyer } from "@/data/demo";
 import type { ComputedGroup } from "@/engine/engine";
 import { loadPayPalSdk } from "@/components/paypal/sdk";
 
+interface PendingCheckout {
+  id: string;
+  name: string;
+  seller: string;
+  groupId: string;
+  buyerId: string;
+  price: string;
+  currency: string;
+  quantity: number;
+  plan?: string | null;
+}
+
 interface CreateOrderResponse {
   reference: string;
   paypalOrderId: string;
@@ -49,14 +61,47 @@ type CheckoutState =
 
 /* ── Component ─────────────────────────────────────────── */
 
-export function CheckoutPanel({ offer, group }: { offer: SimulatedOffer; group: ComputedGroup | null }) {
+export function CheckoutPanel({
+  offer,
+  group,
+  pendingCheckout,
+}: {
+  offer: SimulatedOffer;
+  group: ComputedGroup | null;
+  pendingCheckout: PendingCheckout | null;
+}) {
   const { state, orderCaptured, orderAborted } = useMarket();
   const [checkout, setCheckout] = useState<CheckoutState>({ step: "form" });
   const [paypal, setPaypal] = useState<{ configured: boolean; environment: string | null; clientId: string | null } | null>(null);
   const [buying, setBuying] = useState<string>("");
+  const [sessionChecked, setSessionChecked] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const buttonsHost = useRef<HTMLDivElement | null>(null);
   const activeButtons = useRef<{ close: () => void } | null>(null);
   const alreadyReported = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/auth/session", {
+          credentials: "same-origin",
+          headers: { Accept: "application/json" },
+        });
+        if (!cancelled) {
+          const json = (await res.json()) as { user: { id: string } | null };
+          setIsAuthenticated(!!json.user);
+        }
+      } catch {
+        if (!cancelled) setIsAuthenticated(false);
+      } finally {
+        if (!cancelled) setSessionChecked(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -140,18 +185,72 @@ export function CheckoutPanel({ offer, group }: { offer: SimulatedOffer; group: 
   /**
    * Begin checkout: create the internal order server-side (server recomputes
    * the amount), then render the PayPal buttons for approval.
+   *
+   * Payment execution requires authentication. When the visitor is not
+   * signed in, the pending purchase (product, price, quantity) is preserved
+   * via a server-signed checkout-intent token and the browser is redirected
+   * to the existing sign-in page. After login the pending purchase is
+   * restored and checkout continues.
    */
+  const preserveAndRedirectToSignIn = useCallback(async (): Promise<void> => {
+    try {
+      const intentRes = await fetch("/api/market/checkout-intent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          groupId: offer.groupId,
+          offerId: offer.id,
+          buyerId: buying,
+          buyers: state.buyers,
+        }),
+      });
+      const intentBody = (await intentRes.json()) as {
+        checkoutIntent?: string;
+        product?: { id: string; name: string; price: string; quantity: number; plan?: string };
+        next?: string;
+        error?: string;
+      };
+
+      if (!intentRes.ok || !intentBody.checkoutIntent) {
+        setCheckout({ step: "form", error: intentBody.error ?? "could not preserve your selection — please try again" });
+        return;
+      }
+
+      // Build the market return URL with the signed intent token so the
+      // pending purchase is restored after login. Same-origin, relative only.
+      const returnUrl = new URL(window.location.origin + "/market");
+      returnUrl.searchParams.set("checkoutIntent", intentBody.checkoutIntent);
+      returnUrl.searchParams.set("openOffer", offer.id);
+
+      const signInUrl = new URL(window.location.origin + "/paypilot");
+      signInUrl.searchParams.set("callbackUrl", returnUrl.pathname + returnUrl.search);
+      signInUrl.searchParams.set("loginRequired", "1");
+      window.location.replace(signInUrl.toString());
+    } catch {
+      setCheckout({ step: "form", error: "could not preserve your selection — please try again" });
+    }
+  }, [offer.groupId, offer.id, buying, state.buyers]);
+
   const startCheckout = useCallback(async () => {
     if (!paypal?.configured || !paypal.clientId) return;
     if (buying === "") {
       setCheckout({ step: "form", error: "select a buyer first" });
       return;
     }
+
+    // Not signed in: preserve the pending purchase and redirect to sign-in.
+    if (!isAuthenticated) {
+      await preserveAndRedirectToSignIn();
+      return;
+    }
+
     setCheckout({ step: "creating" });
     try {
       const res = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
         body: JSON.stringify({
           groupId: offer.groupId,
           offerId: offer.id,
@@ -160,6 +259,13 @@ export function CheckoutPanel({ offer, group }: { offer: SimulatedOffer; group: 
         }),
       });
       const payload = (await res.json()) as CreateOrderResponse & { error?: string };
+
+      // Session expired mid-flight: preserve purchase and re-authenticate.
+      if (res.status === 401) {
+        await preserveAndRedirectToSignIn();
+        return;
+      }
+
       if (!res.ok || typeof payload.reference !== "string" || typeof payload.paypalOrderId !== "string" || typeof payload.token !== "string") {
         setCheckout({ step: "form", error: payload.error ?? "the server refused this checkout" });
         return;
@@ -183,6 +289,7 @@ export function CheckoutPanel({ offer, group }: { offer: SimulatedOffer; group: 
                   const cap = await fetch(`/api/orders/${payload.reference}/capture`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
+                    credentials: "same-origin",
                     body: JSON.stringify({ paypalOrderId: data.orderID, token: payload.token }),
                   });
                   const capBody = (await cap.json()) as {
@@ -215,7 +322,7 @@ export function CheckoutPanel({ offer, group }: { offer: SimulatedOffer; group: 
               onCancel: () => {
                 void (async () => {
                   try {
-                    await fetch(`/api/orders/${payload.reference}/cancel`, { method: "POST" });
+                    await fetch(`/api/orders/${payload.reference}/cancel`, { method: "POST", credentials: "same-origin" });
                   } catch {
                     // Local bookkeeping only; PayPal-sent cancel keeps order un-captured.
                   }
@@ -229,7 +336,7 @@ export function CheckoutPanel({ offer, group }: { offer: SimulatedOffer; group: 
                   // server-side; cancel() answers us — a 409 means it was paid.
                   let capturedAnyway = false;
                   try {
-                    const res = await fetch(`/api/orders/${payload.reference}/cancel`, { method: "POST" });
+                    const res = await fetch(`/api/orders/${payload.reference}/cancel`, { method: "POST", credentials: "same-origin" });
                     capturedAnyway = res.status === 409;
                   } catch {
                     // treat as unpaid — server record is authoritative either way
@@ -253,7 +360,15 @@ export function CheckoutPanel({ offer, group }: { offer: SimulatedOffer; group: 
     } catch {
       setCheckout({ step: "network-error" });
     }
-  }, [buying, offer.groupId, offer.id, paypal, reportAborted, reportCaptured, state.buyers]);
+  }, [buying, offer.groupId, offer.id, paypal, reportAborted, reportCaptured, state.buyers, isAuthenticated, preserveAndRedirectToSignIn]);
+
+  // Auto-start checkout when a pending purchase has been restored after sign-in.
+  // Only fires once: pendingCheckout is cleared by the parent on modal close.
+  useEffect(() => {
+    if (!pendingCheckout || !sessionChecked || !isAuthenticated) return;
+    if (checkout.step !== "form") return;
+    void startCheckout();
+  }, [pendingCheckout, sessionChecked, isAuthenticated, checkout.step, startCheckout]);
 
   /* ── Config-missing: informative, honest — no fake payment ── */
   if (paypal == null) {

@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { ApiError, api } from "./api";
 import type { SessionUser } from "./types";
@@ -11,14 +12,31 @@ type Mode = "login" | "register";
  *
  * The UI never implies that a shared demo account is real user isolation: each
  * account gets its own server-scoped orders, budget and activity.
+ *
+ * Accepts an optional `callbackUrl` so, after signing in, the user is returned
+ * to the page they originally requested instead of landing on the dashboard.
  */
-export function PayPilotAuth({ onAuthenticated }: { onAuthenticated: (user: SessionUser) => void }) {
+export function PayPilotAuth({
+  onAuthenticated,
+  callbackUrl,
+}: {
+  onAuthenticated: (user: SessionUser) => void;
+  callbackUrl?: string;
+}) {
   const [mode, setMode] = useState<Mode>("login");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+
+  /** Relative, same-origin only — never redirect off-site after sign-in. */
+  function isSafeCallbackUrl(url: string | null | undefined): boolean {
+    if (!url || !url.startsWith("/")) return false;
+    if (url.startsWith("//")) return false;
+    return true;
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -32,7 +50,13 @@ export function PayPilotAuth({ onAuthenticated }: { onAuthenticated: (user: Sess
         method: "POST",
         body: JSON.stringify(body),
       });
-      onAuthenticated(result.user);
+      const target = callbackUrl;
+      if (target && isSafeCallbackUrl(target) && target !== "/paypilot") {
+        // Return to the page the user originally requested.
+        void router.replace(target);
+      } else {
+        onAuthenticated(result.user);
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong — try again.");
     } finally {

@@ -12,6 +12,8 @@
  * since lambdas do not share a filesystem).
  */
 import { NextResponse } from "next/server";
+import { requireSession } from "@/auth/guard";
+import { getSessionUser } from "@/auth/session";
 import { getPayPalService, publicPayPalState, resolveCheckoutOffer } from "@/paypal/paypal";
 import {
   createOrder,
@@ -22,7 +24,6 @@ import {
 } from "@/paypal/orders";
 import { signOrderToken } from "@/paypal/orderToken";
 import { clientKey, rateLimit } from "@/paypal/ratelimit";
-import { getSessionUser } from "@/auth/session";
 import { categoryForOfferId } from "@/paypilot/catalog";
 import { logActivity } from "@/paypilot/activity";
 
@@ -39,6 +40,10 @@ export async function POST(request: Request): Promise<NextResponse> {
       { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } },
     );
   }
+
+  // Payment execution is account-protected: a guest must sign in first.
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
 
   let body: unknown;
   try {
@@ -68,9 +73,6 @@ export async function POST(request: Request): Promise<NextResponse> {
   const { offer, buyerId, amount, currency } = resolved.resolved;
   const amountText = amount.toFixed(2);
 
-  // Optional ownership: a signed-in PayPilot account owns the orders it
-  // creates. Legacy / demo checkouts remain unowned and keep working.
-  const sessionUser = await getSessionUser(request);
   const categoryId = categoryForOfferId(offer.id);
 
   const service = getPayPalService();
@@ -99,21 +101,19 @@ export async function POST(request: Request): Promise<NextResponse> {
       amount: amountText,
       currency,
       paypalOrderId: created.paypalOrderId,
-      ...(sessionUser ? { userId: sessionUser.id, categoryId } : {}),
+      ...(auth.user ? { userId: auth.user.id, categoryId } : {}),
     });
   } catch {
     // history/audit only — capture trusts the signed token below, not this file
   }
 
-  if (sessionUser) {
-    await logActivity({
-      userId: sessionUser.id,
-      kind: "payment_prepared",
-      source: "server",
-      summary: `Created Sandbox checkout ${reference} for ${offer.sellerName} at €${amountText}. Awaiting PayPal approval; nothing is captured yet.`,
-      reference,
-    });
-  }
+  await logActivity({
+    userId: auth.user.id,
+    kind: "payment_prepared",
+    source: "server",
+    summary: `Created Sandbox checkout ${reference} for ${offer.sellerName} at €${amountText}. Awaiting PayPal approval; nothing is captured yet.`,
+    reference,
+  });
 
   // The capture route reads ONLY this token (HMAC-verified), so checkout stays
   // correct even when orders.json lives in a different lambda's filesystem.
@@ -124,7 +124,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     offerId: offer.id,
     amount: amountText,
     currency,
-    ...(sessionUser ? { userId: sessionUser.id } : {}),
+    ...(auth.user ? { userId: auth.user.id } : {}),
   });
   if (!token) {
     return NextResponse.json(

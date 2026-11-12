@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
+import { useSearchParams } from "next/navigation";
 import { TopNav } from "@/components/TopNav";
 import { DemoBadge } from "@/components/ui/atoms";
 import { DemandNetwork } from "@/components/network/DemandNetwork";
@@ -17,14 +18,60 @@ import { OfferLedger, OfferReviewModal } from "@/components/market/OfferLedger";
 import type { SimulatedOffer } from "@/engine/offers";
 import { useMarket } from "@/state/store";
 
+interface PendingCheckout {
+  id: string;
+  name: string;
+  seller: string;
+  groupId: string;
+  buyerId: string;
+  price: string;
+  currency: string;
+  quantity: number;
+  plan?: string | null;
+}
+
 export default function MarketPage() {
   const { state } = useMarket();
   const [sheetGroupId, setSheetGroupId] = useState<string | null>(null);
   const [mapOpen, setMapOpen] = useState(false);
   const [reviewOfferId, setReviewOfferId] = useState<string | null>(null);
+  const [pendingCheckout, setPendingCheckout] = useState<PendingCheckout | null>(null);
+  const searchParams = useSearchParams();
+
   const reviewOffer: SimulatedOffer | null = reviewOfferId
     ? (state.computed.offers.find((o) => o.id === reviewOfferId) ?? null)
     : null;
+
+  // Restore a pending purchase after sign-in: verify the signed checkout-intent
+  // token and re-open the offer review with checkout ready to start.
+  useEffect(() => {
+    let cancelled = false;
+    const intent = searchParams.get("checkoutIntent");
+    const openOffer = searchParams.get("openOffer");
+    if (!intent || !openOffer) return;
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/market/checkout-intent/verify?token=${encodeURIComponent(intent)}`,
+          { credentials: "same-origin", headers: { Accept: "application/json" } },
+        );
+        if (cancelled || !res.ok) return;
+        const body = (await res.json()) as {
+          product: PendingCheckout;
+          checkoutIntent?: string;
+        };
+        if (!cancelled && body.product) {
+          setPendingCheckout(body.product);
+          setReviewOfferId(openOffer);
+        }
+      } catch {
+        // Intent could not be verified — leave the market in its normal state.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams]);
 
   const filteredGroups = state.computed.groups.filter(
     (g) => state.filter === "all" || g.categoryId === state.filter,
@@ -195,7 +242,16 @@ export default function MarketPage() {
           onReviewOffer={(offerId) => setReviewOfferId(offerId)}
         />
       )}
-      {reviewOffer && <OfferReviewModal offer={reviewOffer} onClose={() => setReviewOfferId(null)} />}
+      {reviewOffer && (
+        <OfferReviewModal
+          offer={reviewOffer}
+          onClose={() => {
+            setReviewOfferId(null);
+            setPendingCheckout(null);
+          }}
+          pendingCheckout={pendingCheckout}
+        />
+      )}
     </div>
   );
 }

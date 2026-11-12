@@ -16,6 +16,9 @@ import path from "node:path";
 
 import { BUYERS, type Buyer } from "@/data/demo";
 import { computeMarket } from "@/engine/engine";
+import { hashPassword } from "@/auth/password";
+import { signSessionToken } from "@/auth/session";
+import { createUser, setUserDataDir } from "@/auth/users";
 import { publicPayPalState, resolveCheckoutOffer, setPayPalServiceForTests, type PayPalServiceLike } from "@/paypal/paypal";
 import { createOrder, findOrder, listOrders, publicOrder, setOrderDataDir, updateOrderStatus, type DemoOrder } from "@/paypal/orders";
 import { signOrderToken, verifyOrderToken } from "@/paypal/orderToken";
@@ -31,30 +34,34 @@ import { GET as configGET } from "@/app/api/paypal/config/route";
 
 const FAKE_CLIENT_ID = "AY-test-client-id";
 const FAKE_CLIENT_SECRET = "SK-test-secret-DO-NOT-LEAK";
+const AUTH_SECRET = "phase4-test-auth-secret-DO-NOT-LEAK";
+const PASSWORD = "correct-horse-battery";
 
 const tempDir = mkdtempSync(path.join(tmpdir(), "neednet-phase4-"));
 
 beforeAll(() => {
-  // Fake sandbox credentials: the routes read the env directly (no session
-  // exists) — the 503 test below temporarily removes them.
   process.env.PAYPAL_CLIENT_ID = FAKE_CLIENT_ID;
   process.env.PAYPAL_CLIENT_SECRET = FAKE_CLIENT_SECRET;
+  process.env.AUTH_SIGNING_SECRET = AUTH_SECRET;
   delete process.env.PAYPAL_ENVIRONMENT;
 });
 
 beforeEach(() => {
-  // Fresh order store per test — no cross-test order leakage.
   rmSync(path.join(tempDir, "orders.json"), { force: true });
+  rmSync(path.join(tempDir, "users.json"), { force: true });
   setOrderDataDir(tempDir);
+  setUserDataDir(tempDir);
   setPayPalServiceForTests(null);
 });
 
 afterAll(() => {
   setPayPalServiceForTests(null);
   setOrderDataDir(null);
+  setUserDataDir(null);
   rmSync(tempDir, { recursive: true, force: true });
   delete process.env.PAYPAL_CLIENT_ID;
   delete process.env.PAYPAL_CLIENT_SECRET;
+  delete process.env.AUTH_SIGNING_SECRET;
 });
 
 /* ── Deterministic market fixture ──────────────────────── */
@@ -70,12 +77,24 @@ const otherOffer = computed.offers.find((o) => o.groupId !== "g01")!;
 const _OTHER_GROUP_ID = computed.groups.find((g) => g.id !== "g01")!.id;
 void _OTHER_GROUP_ID;
 
-function jsonRequest(url: string, body: unknown): Request {
+function jsonRequest(url: string, body: unknown, cookie?: string): Request {
   return new Request(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(cookie ? { cookie } : {}),
+    },
     body: JSON.stringify(body),
   });
+}
+
+async function account(email: string, name = "Test Buyer"): Promise<{ id: string; email: string; cookie: string }> {
+  const { hash, salt } = hashPassword(PASSWORD);
+  const created = await createUser({ email, name, passwordHash: hash, passwordSalt: salt });
+  if (!created) throw new Error("test account could not be created");
+  const token = signSessionToken(created.id);
+  if (!token) throw new Error("test session could not be signed");
+  return { id: created.id, email, cookie: `paypilot_session=${encodeURIComponent(token)}` };
 }
 
 function checkoutBody(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -287,8 +306,9 @@ describe("order store (file-backed, server-side)", () => {
 
 describe("POST /api/orders", () => {
   it("creates a pending order with the server-computed amount", async () => {
+    const user = await account("order-create@example.com");
     setPayPalServiceForTests(mockService());
-    const res = await ordersPOST(jsonRequest("http://localhost/api/orders", checkoutBody()));
+    const res = await ordersPOST(jsonRequest("http://localhost/api/orders", checkoutBody(), user.cookie));
     expect(res.status).toBe(200);
     const body = (await res.json()) as { reference: string; paypalOrderId: string; amount: string; currency: string; token: string };
     expect(body.amount).toBe(offer.perBuyerCost["b01"].toFixed(2));
@@ -308,17 +328,19 @@ describe("POST /api/orders", () => {
       offerId: offer.id,
       amount: body.amount,
       currency: "EUR",
+      userId: user.id,
     });
     expect(body.token).not.toContain(FAKE_CLIENT_SECRET);
   });
 
   it("returns 503 (not a fake order) when PayPal is not configured", async () => {
+    const user = await account("order-503@example.com");
     const savedId = process.env.PAYPAL_CLIENT_ID;
     const savedSecret = process.env.PAYPAL_CLIENT_SECRET;
     delete process.env.PAYPAL_CLIENT_ID;
     delete process.env.PAYPAL_CLIENT_SECRET;
     try {
-      const res = await ordersPOST(jsonRequest("http://localhost/api/orders", checkoutBody()));
+      const res = await ordersPOST(jsonRequest("http://localhost/api/orders", checkoutBody(), user.cookie));
       expect(res.status).toBe(503);
       const body = (await res.json()) as { error: string };
       expect(body.error.toLowerCase()).toContain("not configured");
@@ -329,18 +351,20 @@ describe("POST /api/orders", () => {
   });
 
   it("surfaces the PayPal failure honestly (502) when creation fails", async () => {
+    const user = await account("order-502@example.com");
     setPayPalServiceForTests({
       createOrder: async () => ({ ok: false, reason: "PayPal order creation failed (HTTP 500)" }),
       captureOrder: async () => ({ verified: false, reason: "unused", code: "api_error" }),
     });
-    const res = await ordersPOST(jsonRequest("http://localhost/api/orders", checkoutBody()));
+    const res = await ordersPOST(jsonRequest("http://localhost/api/orders", checkoutBody(), user.cookie));
     expect(res.status).toBe(502);
     expect(listOrders()).toHaveLength(0); // nothing half-created is stored
   });
 
   it("rejects invalid inputs before touching PayPal", async () => {
+    const user = await account("order-invalid@example.com");
     setPayPalServiceForTests(mockService());
-    const res = await ordersPOST(jsonRequest("http://localhost/api/orders", checkoutBody({ offerId: "nope-gone" })));
+    const res = await ordersPOST(jsonRequest("http://localhost/api/orders", checkoutBody({ offerId: "nope-gone" }), user.cookie));
     expect(res.status).toBe(404);
     expect(listOrders()).toHaveLength(0);
   });
@@ -744,10 +768,11 @@ describe("rate limiting", () => {
   // Runs LAST in this file: earlier POSTs have already consumed some of the
   // per-IP window, so we assert "eventually throttled" rather than exact count.
   it("throttles checkout bursts per IP instead of hammering PayPal", async () => {
+    const user = await account("order-limit@example.com");
     setPayPalServiceForTests(mockService());
     let sawThrottle = false;
     for (let i = 0; i < 40; i++) {
-      const res = await ordersPOST(jsonRequest("http://localhost/api/orders", checkoutBody()));
+      const res = await ordersPOST(jsonRequest("http://localhost/api/orders", checkoutBody(), user.cookie));
       if (res.status === 429) {
         sawThrottle = true;
         break;

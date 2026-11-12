@@ -10,6 +10,18 @@ import { EnginePickChip, PurchasedChip, QualityChip, RankChip } from "./chips";
 import { CheckoutPanel } from "./CheckoutPanel";
 import { useDialogFocus } from "@/components/ui/useDialogFocus";
 
+interface PendingCheckout {
+  id: string;
+  name: string;
+  seller: string;
+  groupId: string;
+  buyerId: string;
+  price: string;
+  currency: string;
+  quantity: number;
+  plan?: string | null;
+}
+
 /**
  * Offer cards — a scannable comparison of the engine's ranked simulated
  * quotes for the current filter/group. All quotes are synthetic. Phase 4:
@@ -154,7 +166,15 @@ function OfferCard({
  * Full offer review — opened from the ledger, the group sheet or the inspector.
  * Phase 4: read-only review + the real PayPal SANDBOX checkout surface.
  */
-export function OfferReviewModal({ offer, onClose }: { offer: SimulatedOffer; onClose: () => void }) {
+export function OfferReviewModal({
+  offer,
+  onClose,
+  pendingCheckout,
+}: {
+  offer: SimulatedOffer;
+  onClose: () => void;
+  pendingCheckout: PendingCheckout | null;
+}) {
   const { state } = useMarket();
   const closeRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useDialogFocus(onClose, closeRef);
@@ -267,7 +287,7 @@ export function OfferReviewModal({ offer, onClose }: { offer: SimulatedOffer; on
             </p>
           )}
 
-          <CheckoutPanel offer={offer} group={group ?? null} />
+          <CheckoutPanel offer={offer} group={group ?? null} pendingCheckout={pendingCheckout} />
         </div>
       </div>
     </div>

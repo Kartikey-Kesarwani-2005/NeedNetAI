@@ -165,7 +165,10 @@ export default function OrdersPage() {
     setRefreshing(true);
     setError(null);
     try {
-      const res = await fetch("/api/orders", { headers: { Accept: "application/json" } });
+      const res = await fetch("/api/orders", {
+        credentials: "same-origin",
+        headers: { Accept: "application/json" },
+      });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const payload = (await res.json()) as { orders: OrderRecord[] };
       setOrders(payload.orders);
@@ -180,7 +183,10 @@ export default function OrdersPage() {
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetch("/api/orders", { headers: { Accept: "application/json" } });
+        const res = await fetch("/api/orders", {
+          credentials: "same-origin",
+          headers: { Accept: "application/json" },
+        });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const payload = (await res.json()) as { orders: OrderRecord[] };
         if (!cancelled) setOrders(payload.orders);
@@ -198,6 +204,7 @@ export default function OrdersPage() {
     try {
       const res = await fetch(`/api/orders/${reference}/cancel`, {
         method: "POST",
+        credentials: "same-origin",
         headers: { Accept: "application/json" },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -220,6 +227,7 @@ export default function OrdersPage() {
       // checkout then navigate to PayPilot to prepare a fresh confirmation.
       const res = await fetch(`/api/orders/${reference}/cancel`, {
         method: "POST",
+        credentials: "same-origin",
         headers: { Accept: "application/json" },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);

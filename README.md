@@ -284,23 +284,87 @@ rail.
 
 ## AI configuration (optional)
 
-The AI layer is **strictly optional**. Copy the example env file and fill in real values:
+The AI layer is **strictly optional**. Without credentials the app runs fully
+deterministic and every surface truthfully labels its output as rule-based fallback
+rather than model output. When credentials are present, real model calls power
+natural-language demand extraction, AI-generated group explanations, the PayPilot
+intent classifier and the agentic purchasing agent.
+
+### 1. Get an API key
+
+Use any OpenAI-compatible provider (OpenAI itself, or a compatible proxy). You need:
+
+- An API key (`sk-...` or your provider's equivalent).
+- Optionally a base URL if your endpoint is not `https://api.openai.com/v1`.
+- Optionally a model id; the default is `gpt-4o-mini`.
+
+### 2. Add it to `.env` (git-ignored, never committed)
 
 ```bash
 cp .env.example .env   # then edit .env — never commit it
 ```
 
+Append these lines to `.env`:
+
+```
+# AI provider — required to enable real model calls. Leave AI_API_KEY empty to stay
+# in deterministic fallback mode (no model is ever called).
+AI_API_KEY=sk-...              # paste your real key here; NEVER commit this file
+AI_BASE_URL=https://api.openai.com/v1   # any OpenAI-compatible /chat/completions base URL
+AI_MODEL=gpt-4o-mini           # model id understood by the endpoint above
+```
+
+### 3. Verify the live AI channel
+
+After restarting the dev server, `GET /api/health` reports the channel without exposing
+the key:
+
+```json
+{
+  "checks": {
+    "ai": { "configured": true, "model": "gpt-4o-mini" }
+  }
+}
+```
+
+- `configured: false` / `model: null` → no key present → deterministic fallback only.
+- `configured: true` → `getAiProvider()` returns the OpenAI-compatible adapter and the
+  routes call the model end-to-end.
+
+### Fallback behavior (always functional)
+
+With no key (or on timeout, network failure, or unusable model output) every AI code
+path degrades to deterministic code and the response is labelled truthfully:
+
+- `POST /api/ai/extract` → `source: "deterministic_fallback"`,
+  `aiStatus: "unavailable" | "error"`, rule-based extraction.
+- `POST /api/ai/explain` → `ok: false`, deterministic explanation from engine facts.
+- `POST /api/paypilot/chat` → `source: "deterministic"`, `aiStatus: "unavailable" |
+  "error"`, rules-based intent classification.
+- `POST /api/agent/purchase` → `source: "engine"`, the engine's own ranked pick.
+
+The UI never labels fallback output as AI. Fallback mode is covered by the test suite
+and stays functional with or without credentials.
+
+### Security invariants
+
+| Invariant | How it's enforced |
+|---|---|
+| Key never leaves the server | `src/ai/provider.ts` reads `process.env` only; the adapter is **not** imported by client code |
+| Key never logged or echoed | `callModel` sends it only in the `Authorization` header; errors return generic messages |
+| No hardcoded fallback key | `readAiConfig` returns `null` when `AI_API_KEY` is absent/whitespace — no default |
+| Secrets never in responses | `/api/health` exposes `checks.ai` as booleans/model name only; no key material |
+| Model output never trusted | `coerceModelExtraction`, `coerceModelExplanation`, `validateExplanation`, `coerceAiIntent`, `coerceAgentChoice` validate/quarantine before anything touches state |
+
 | Variable | Default | Purpose |
 |---|---|---|
-| `AI_API_KEY` | *(empty)* | API key for an OpenAI-compatible endpoint. Absent ⇒ no model is ever called; the app runs deterministic only. |
+| `AI_API_KEY` | *(empty)* | API key for an OpenAI-compatible endpoint. Required to enable AI; absent ⇒ deterministic only. |
 | `AI_BASE_URL` | `https://api.openai.com/v1` | Any OpenAI-compatible `/chat/completions` base URL. |
 | `AI_MODEL` | `gpt-4o-mini` | Model id understood by that endpoint. |
 
-Security invariants: the key is read **only** inside the server routes
-(`src/app/api/ai/*`, `runtime = "nodejs"`); it is never bundled into client code, never
-logged, and never echoed in a response. Request bodies are size-limited (4,000 chars for
-extraction, 32 KB facts payload for explanations); model calls have a 20 s timeout; every
-model response is coerced and validated before it can touch state.
+Request bodies are size-limited (4,000 chars for extraction, 32 KB facts payload for
+explanations); model calls have a 20 s timeout; every model response is coerced and
+validated before it can touch state.
 
 ## Stack
 
